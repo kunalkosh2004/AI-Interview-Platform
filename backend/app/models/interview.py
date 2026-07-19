@@ -7,14 +7,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 
-class InterviewStatus(str, enum.Enum):
+class InterviewStatus(enum.StrEnum):
     SCHEDULED = "scheduled"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
 
-class InterviewType(str, enum.Enum):
+class InterviewType(enum.StrEnum):
     TECHNICAL = "technical"
     BEHAVIORAL = "behavioral"
     SYSTEM_DESIGN = "system_design"
