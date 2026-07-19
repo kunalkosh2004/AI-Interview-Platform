@@ -1,0 +1,149 @@
+services:
+  # ── Backend API ────────────────────────────────────────────────────────────
+  - type: web
+    name: ai-interview-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ai-interview-db
+          property: connectionString
+
+      - key: REDIS_URL
+        fromService:
+          name: ai-interview-redis
+          type: redis
+          property: connectionString
+
+      - key: CELERY_BROKER_URL
+        fromService:
+          name: ai-interview-redis
+          type: redis
+          property: connectionString
+
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          name: ai-interview-redis
+          type: redis
+          property: connectionString
+
+      # ── Auth ──────────────────────────────────────────────────────────────
+      - key: JWT_SECRET_KEY
+        generateValue: true
+
+      - key: JWT_ALGORITHM
+        value: HS256
+
+      - key: JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "30"
+
+      - key: JWT_REFRESH_TOKEN_EXPIRE_DAYS
+        value: "7"
+
+      # CHANGE 1 ─────────────────────────────────────────────────────────────
+      # Replace the CORS_ORIGINS value with YOUR actual Render frontend URL.
+      # Format: https://<your-frontend-service-name>.onrender.com
+      # If you haven't deployed the frontend yet, deploy it first, copy its URL,
+      # then come back and update this line.
+      - key: CORS_ORIGINS
+        value: '["https://YOUR-FRONTEND-NAME.onrender.com","http://localhost:5173"]'
+
+      # ── LLM ───────────────────────────────────────────────────────────────
+      # CHANGE 2 ─────────────────────────────────────────────────────────────
+      # Set LLM_PROVIDER to whichever provider you want to use:
+      #   "gemini"      → needs GEMINI_API_KEY
+      #   "groq"        → needs GROQ_API_KEY
+      #   "openrouter"  → needs OPENROUTER_API_KEY
+      #   "openai"      → needs OPENAI_API_KEY
+      #   "anthropic"   → needs ANTHROPIC_API_KEY
+      - key: LLM_PROVIDER
+        value: gemini
+
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+
+      - key: OPENROUTER_MODEL
+        value: meta-llama/llama-3.3-70b-instruct:free
+
+      - key: OPENAI_MODEL
+        value: gpt-4o
+
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-4-20250514
+
+      # CHANGE 3 ─────────────────────────────────────────────────────────────
+      # API keys — sync: false means Render will NOT auto-fill these.
+      # After deploying, go to:
+      #   Render Dashboard → ai-interview-backend → Environment
+      # and manually paste the key for whichever LLM_PROVIDER you chose above.
+      # You only need to fill the one matching your LLM_PROVIDER.
+      - key: GEMINI_API_KEY
+        sync: false
+
+      - key: GROQ_API_KEY
+        sync: false
+
+      - key: OPENROUTER_API_KEY
+        sync: false
+
+      - key: OPENAI_API_KEY
+        sync: false
+
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      # ── Storage ───────────────────────────────────────────────────────────
+      # NOTE: "local" storage is wiped on every Render redeploy (ephemeral disk).
+      # For production, change to "s3" and fill in the AWS keys below.
+      - key: STORAGE_BACKEND
+        value: local
+
+      - key: LOCAL_STORAGE_PATH
+        value: ./storage
+
+      # ── Misc ──────────────────────────────────────────────────────────────
+      - key: PROCTORING_ENABLED
+        value: "true"
+
+      - key: CODE_EXECUTION_TIMEOUT
+        value: "30"
+
+      - key: DEBUG
+        value: "false"
+
+  # ── Frontend (Static Site via Docker / Nginx) ─────────────────────────────
+  # CHANGE 4 ─────────────────────────────────────────────────────────────────
+  # If you are deploying the frontend on Render too, uncomment this block.
+  # The name here must match what you put in CORS_ORIGINS above.
+  # If you're deploying frontend elsewhere (Vercel, Netlify, etc.), skip this.
+  #
+  # - type: web
+  #   name: ai-interview-frontend
+  #   runtime: docker
+  #   dockerfilePath: ./frontend/Dockerfile
+  #   dockerContext: ./frontend
+  #   plan: free
+  #   envVars:
+  #     # CHANGE 4a: set this to your Render backend URL once the backend is up
+  #     - key: VITE_API_URL
+  #       value: https://ai-interview-backend.onrender.com
+
+  # ── Redis ─────────────────────────────────────────────────────────────────
+  # Redis must be under "services" in Render YAML (not "databases")
+  - type: redis
+    name: ai-interview-redis
+    plan: free
+    ipAllowList: []
+
+# ── PostgreSQL ────────────────────────────────────────────────────────────
+databases:
+  - name: ai-interview-db
+    plan: free
+    databaseName: ai_interview
+    user: postgres

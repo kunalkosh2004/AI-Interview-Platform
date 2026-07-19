@@ -72,11 +72,15 @@ class Settings(BaseSettings):
     @field_validator("DATABASE_URL")
     @classmethod
     def ensure_async_driver(cls, v: str) -> str:
-        if v.startswith("postgresql://"):
+        # Render (and Heroku) inject postgres:// or postgresql://
+        # SQLAlchemy asyncpg requires postgresql+asyncpg://
+        if v.startswith("postgres://"):
+            v = v.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif v.startswith("postgresql://"):
             v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
         return v
 
-    model_config = {"env_file": ".env", "case_sensitive": True}
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "case_sensitive": True, "extra": "ignore"}
 
 
 @lru_cache
