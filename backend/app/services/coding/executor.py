@@ -79,9 +79,7 @@ async def _run_single(code: str, language: str, time_limit: int) -> dict:
                 stderr=asyncio.subprocess.PIPE,
                 cwd=tmpdir,
             )
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=time_limit
-            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=time_limit)
 
             return {
                 "status": "success" if proc.returncode == 0 else "error",
@@ -123,12 +121,14 @@ async def _run_with_test_cases(
         result = await _run_single(wrapped_code, language, time_limit // len(test_cases))
 
         passed = result.get("stdout", "").strip() == expected.strip()
-        results.append({
-            "test_case": i + 1,
-            "passed": passed,
-            "expected": expected,
-            "got": result.get("stdout", "").strip(),
-        })
+        results.append(
+            {
+                "test_case": i + 1,
+                "passed": passed,
+                "expected": expected,
+                "got": result.get("stdout", "").strip(),
+            }
+        )
 
     passed_count = sum(1 for r in results if r["passed"])
     return {
@@ -139,9 +139,7 @@ async def _run_with_test_cases(
     }
 
 
-async def _run_python_tests(
-    code: str, test_cases: list[dict], time_limit: int
-) -> dict:
+async def _run_python_tests(code: str, test_cases: list[dict], time_limit: int) -> dict:
     test_code = code + "\n\nimport json, sys\nresults = []\n"
     for i, tc in enumerate(test_cases):
         input_data = json.dumps(tc.get("input", ""))
@@ -157,7 +155,7 @@ try:
 except Exception as e:
     results.append({{"test_case": {i+1}, "passed": False, "expected": {expected}, "got": str(e)}})
 """
-    test_code += '\nprint(json.dumps(results))\n'
+    test_code += "\nprint(json.dumps(results))\n"
 
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "test_solution.py")
@@ -166,7 +164,8 @@ except Exception as e:
 
         try:
             proc = await asyncio.create_subprocess_exec(
-                "python3", filepath,
+                "python3",
+                filepath,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=tmpdir,
@@ -204,8 +203,7 @@ def _build_command(language: str, filepath: str, tmpdir: str) -> list[str]:
     cmd = []
     for part in config["command"]:
         cmd.append(
-            part
-            .replace("{file}", filepath)
+            part.replace("{file}", filepath)
             .replace("{dir}", tmpdir)
             .replace("{class_name}", class_name)
         )
@@ -214,5 +212,7 @@ def _build_command(language: str, filepath: str, tmpdir: str) -> list[str]:
 
 def _wrap_with_io(code: str, language: str, input_data: str) -> str:
     if language == "python":
-        return f"{code}\n\nimport sys\nsys.stdin = open('/dev/stdin')\nprint(solution({input_data}))\n"
+        return (
+            f"{code}\n\nimport sys\nsys.stdin = open('/dev/stdin')\nprint(solution({input_data}))\n"
+        )
     return code

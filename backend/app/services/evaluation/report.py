@@ -13,9 +13,7 @@ from app.services.proctoring.browser import calculate_cheating_risk
 logger = logging.getLogger(__name__)
 
 
-async def generate_interview_report(
-    interview_id: int, db: AsyncSession
-) -> dict:
+async def generate_interview_report(interview_id: int, db: AsyncSession) -> dict:
     interview = await db.get(Interview, interview_id)
     if not interview:
         raise ValueError("Interview not found")
@@ -126,9 +124,7 @@ Rules:
         return _fallback_report(questions, coding_sessions, cheating_risk)
 
 
-def _fallback_report(
-    questions: list, coding_sessions: list, cheating_risk: str
-) -> dict:
+def _fallback_report(questions: list, coding_sessions: list, cheating_risk: str) -> dict:
     answered = sum(1 for q in questions if q.answer_text)
     total = len(questions)
     avg_score = 0

@@ -26,12 +26,26 @@ async def generate_interview_questions(
     difficulty = difficulty_map.get(difficulty_level, "medium")
 
     # Support both raw parsed_data and resume_summary format
-    experience_text = parsed_resume.get("experience_summary", "") or "\n".join(
-        [f"- {e.get('title', '')} at {e.get('company', '')}: {e.get('description', '')}" for e in experience[:5]]
-    ) or "No experience details provided"
-    projects_text = parsed_resume.get("projects_summary", "") or "\n".join(
-        [f"- {p.get('name', '')}: {p.get('description', '')} (Tech: {', '.join(p.get('technologies', []))})" for p in projects[:5]]
-    ) or "No project details provided"
+    experience_text = (
+        parsed_resume.get("experience_summary", "")
+        or "\n".join(
+            [
+                f"- {e.get('title', '')} at {e.get('company', '')}: {e.get('description', '')}"
+                for e in experience[:5]
+            ]
+        )
+        or "No experience details provided"
+    )
+    projects_text = (
+        parsed_resume.get("projects_summary", "")
+        or "\n".join(
+            [
+                f"- {p.get('name', '')}: {p.get('description', '')} (Tech: {', '.join(p.get('technologies', []))})"
+                for p in projects[:5]
+            ]
+        )
+        or "No project details provided"
+    )
     education_text = parsed_resume.get("education", "") or "No education details"
 
     prompt = f"""Generate {num_questions} personalized technical interview questions for a candidate with this profile:
@@ -201,7 +215,11 @@ def _fallback_questions(
             "question_text": "Implement a function to check if a binary tree is balanced.",
             "test_cases": [
                 {"input": [1, 2, 3, 4, 5], "expected": True, "explanation": "Balanced tree"},
-                {"input": [1, 2, 2, 3, 3, 3, 4, 4, 4, 4], "expected": False, "explanation": "Unbalanced tree"},
+                {
+                    "input": [1, 2, 2, 3, 3, 3, 4, 4, 4, 4],
+                    "expected": False,
+                    "explanation": "Unbalanced tree",
+                },
             ],
         },
         {
@@ -218,15 +236,37 @@ def _fallback_questions(
         "How would you architect a microservices system for an e-commerce platform?",
     ]
 
-    verbal = default_verbal[:num_questions // 2 + 1]
-    coding = default_coding[:num_questions // 4 + 1]
-    system = default_system[:num_questions // 4]
+    verbal = default_verbal[: num_questions // 2 + 1]
+    coding = default_coding[: num_questions // 4 + 1]
+    system = default_system[: num_questions // 4]
 
     for q in verbal:
-        questions.append({"question_text": q, "question_type": "verbal", "category": "general", "difficulty": 2.0})
+        questions.append(
+            {
+                "question_text": q,
+                "question_type": "verbal",
+                "category": "general",
+                "difficulty": 2.0,
+            }
+        )
     for q in coding:
-        questions.append({"question_text": q["question_text"], "question_type": "coding", "category": "dsa", "difficulty": 2.0, "test_cases": q["test_cases"]})
+        questions.append(
+            {
+                "question_text": q["question_text"],
+                "question_type": "coding",
+                "category": "dsa",
+                "difficulty": 2.0,
+                "test_cases": q["test_cases"],
+            }
+        )
     for q in system:
-        questions.append({"question_text": q, "question_type": "system_design", "category": "system_design", "difficulty": 2.5})
+        questions.append(
+            {
+                "question_text": q,
+                "question_type": "system_design",
+                "category": "system_design",
+                "difficulty": 2.5,
+            }
+        )
 
     return questions[:num_questions]

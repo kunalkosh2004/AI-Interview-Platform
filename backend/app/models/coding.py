@@ -63,7 +63,9 @@ class ProctoringEvent(Base):
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
     details: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     screenshot_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    timestamp_seconds: Mapped[float] = mapped_column(Float, nullable=True)  # seconds from interview start
+    timestamp_seconds: Mapped[float] = mapped_column(
+        Float, nullable=True
+    )  # seconds from interview start
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
@@ -76,7 +78,9 @@ class InterviewReport(Base):
     __tablename__ = "interview_reports"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    interview_id: Mapped[int] = mapped_column(ForeignKey("interviews.id"), unique=True, nullable=False)
+    interview_id: Mapped[int] = mapped_column(
+        ForeignKey("interviews.id"), unique=True, nullable=False
+    )
 
     scores: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # scores structure:
@@ -92,8 +96,12 @@ class InterviewReport(Base):
     strengths: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     weaknesses: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     improvement_areas: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    recommendation: Mapped[str | None] = mapped_column(String(20), nullable=True)  # hire, borderline, reject
-    cheating_risk: Mapped[str | None] = mapped_column(String(20), nullable=True)  # low, medium, high
+    recommendation: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )  # hire, borderline, reject
+    cheating_risk: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )  # low, medium, high
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(

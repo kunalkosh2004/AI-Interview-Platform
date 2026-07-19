@@ -33,11 +33,15 @@ async def list_interviews(
 ):
     if user.role == "candidate":
         result = await db.execute(
-            select(Interview).where(Interview.candidate_id == user.id).order_by(Interview.created_at.desc())
+            select(Interview)
+            .where(Interview.candidate_id == user.id)
+            .order_by(Interview.created_at.desc())
         )
     elif user.role == "recruiter":
         result = await db.execute(
-            select(Interview).where(Interview.recruiter_id == user.id).order_by(Interview.created_at.desc())
+            select(Interview)
+            .where(Interview.recruiter_id == user.id)
+            .order_by(Interview.created_at.desc())
         )
     else:
         result = await db.execute(select(Interview).order_by(Interview.created_at.desc()))
@@ -60,9 +64,7 @@ async def create_interview(
         if resume and resume.parsed_data:
             resume_summary = _build_resume_summary(resume, candidate)
     else:
-        resume = await db.execute(
-            select(Resume).where(Resume.user_id == payload.candidate_id)
-        )
+        resume = await db.execute(select(Resume).where(Resume.user_id == payload.candidate_id))
         resume = resume.scalar_one_or_none()
         if resume and resume.parsed_data:
             resume_summary = _build_resume_summary(resume, candidate)
@@ -90,17 +92,38 @@ def _build_resume_summary(resume, candidate) -> dict:
     projects = data.get("projects", [])
     education = data.get("education", [])
 
-    exp_text = "; ".join(
-        [f"{e.get('title', '')} at {e.get('company', '')} ({e.get('duration', '')}): {e.get('description', '')}" for e in exp[:3]]
-    ) if exp else "No work experience"
+    exp_text = (
+        "; ".join(
+            [
+                f"{e.get('title', '')} at {e.get('company', '')} ({e.get('duration', '')}): {e.get('description', '')}"
+                for e in exp[:3]
+            ]
+        )
+        if exp
+        else "No work experience"
+    )
 
-    proj_text = "; ".join(
-        [f"{p.get('name', '')}: {p.get('description', '')} (Tech: {', '.join(p.get('technologies', [])[:5])})" for p in projects[:3]]
-    ) if projects else "No projects"
+    proj_text = (
+        "; ".join(
+            [
+                f"{p.get('name', '')}: {p.get('description', '')} (Tech: {', '.join(p.get('technologies', [])[:5])})"
+                for p in projects[:3]
+            ]
+        )
+        if projects
+        else "No projects"
+    )
 
-    edu_text = "; ".join(
-        [f"{e.get('degree', '')} from {e.get('institution', '')} ({e.get('year', '')})" for e in education[:2]]
-    ) if education else "No education"
+    edu_text = (
+        "; ".join(
+            [
+                f"{e.get('degree', '')} from {e.get('institution', '')} ({e.get('year', '')})"
+                for e in education[:2]
+            ]
+        )
+        if education
+        else "No education"
+    )
 
     return {
         "candidate_name": candidate.full_name,
@@ -273,10 +296,18 @@ async def submit_answer(
     if interview.resume_id:
         resume = await db.get(Resume, interview.resume_id)
 
-    parsed_resume = resume.parsed_data if resume and resume.parsed_data else {
-        "skills": [], "technologies": [], "experience_years": 0,
-        "experience": [], "projects": [], "domain_expertise": [],
-    }
+    parsed_resume = (
+        resume.parsed_data
+        if resume and resume.parsed_data
+        else {
+            "skills": [],
+            "technologies": [],
+            "experience_years": 0,
+            "experience": [],
+            "projects": [],
+            "domain_expertise": [],
+        }
+    )
 
     result = await process_candidate_answer(
         interview_id=interview_id,
@@ -340,9 +371,7 @@ async def get_questions(
         .order_by(InterviewQuestion.order_index)
     )
     questions = result.scalars().all()
-    return QuestionsResponse(
-        questions=[QuestionResponse.model_validate(q) for q in questions]
-    )
+    return QuestionsResponse(questions=[QuestionResponse.model_validate(q) for q in questions])
 
 
 # ── Report Generation ─────────────────────────────────────────────────────────

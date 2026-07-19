@@ -13,8 +13,12 @@ class InterviewQuestion(Base):
     interview_id: Mapped[int] = mapped_column(ForeignKey("interviews.id"), nullable=False)
 
     question_text: Mapped[str] = mapped_column(Text, nullable=False)
-    question_type: Mapped[str] = mapped_column(String(50), nullable=False)  # mcq, coding, verbal, system_design
-    category: Mapped[str] = mapped_column(String(100), nullable=False)  # python, system_design, etc.
+    question_type: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # mcq, coding, verbal, system_design
+    category: Mapped[str] = mapped_column(
+        String(100), nullable=False
+    )  # python, system_design, etc.
     difficulty: Mapped[int] = mapped_column(Float, default=2.0)
     order_index: Mapped[int] = mapped_column(default=0)
 

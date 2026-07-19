@@ -13,12 +13,14 @@ from app.services.interview.question_generator import (
 logger = logging.getLogger(__name__)
 
 
-async def start_interview_session(
-    interview: Interview, db: AsyncSession
-) -> dict:
+async def start_interview_session(interview: Interview, db: AsyncSession) -> dict:
     parsed_resume = interview.resume_summary or {
-        "skills": [], "technologies": [], "experience_years": 0,
-        "experience_summary": "", "education": "", "projects_summary": "",
+        "skills": [],
+        "technologies": [],
+        "experience_years": 0,
+        "experience_summary": "",
+        "education": "",
+        "projects_summary": "",
         "domain_expertise": [],
     }
 
@@ -96,10 +98,7 @@ async def process_candidate_answer(
         .order_by(ConversationMessage.created_at)
     )
     all_messages = result.scalars().all()
-    previous_questions = [
-        m.content for m in all_messages
-        if m.role == "ai" and "?" in m.content
-    ]
+    previous_questions = [m.content for m in all_messages if m.role == "ai" and "?" in m.content]
 
     follow_up = await generate_follow_up(
         question=question.question_text,

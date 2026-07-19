@@ -53,4 +53,5 @@ def require_role(*roles: str):
                 detail=f"Role '{user.role}' not in required roles: {roles}",
             )
         return user
+
     return role_checker

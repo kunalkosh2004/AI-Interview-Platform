@@ -67,11 +67,14 @@ async def interview_websocket(websocket: WebSocket, interview_id: int):
     await manager.connect(websocket, interview_id)
 
     try:
-        await manager.broadcast(interview_id, {
-            "type": "user_joined",
-            "user_id": user_id,
-            "message": "User connected",
-        })
+        await manager.broadcast(
+            interview_id,
+            {
+                "type": "user_joined",
+                "user_id": user_id,
+                "message": "User connected",
+            },
+        )
 
         while True:
             data = await websocket.receive_text()
@@ -79,19 +82,25 @@ async def interview_websocket(websocket: WebSocket, interview_id: int):
             msg_type = message.get("type", "")
 
             if msg_type == "chat":
-                await manager.broadcast(interview_id, {
-                    "type": "chat",
-                    "user_id": user_id,
-                    "content": message.get("content", ""),
-                    "role": message.get("role", "candidate"),
-                })
+                await manager.broadcast(
+                    interview_id,
+                    {
+                        "type": "chat",
+                        "user_id": user_id,
+                        "content": message.get("content", ""),
+                        "role": message.get("role", "candidate"),
+                    },
+                )
 
             elif msg_type == "typing":
-                await manager.broadcast(interview_id, {
-                    "type": "typing",
-                    "user_id": user_id,
-                    "is_typing": message.get("is_typing", False),
-                })
+                await manager.broadcast(
+                    interview_id,
+                    {
+                        "type": "typing",
+                        "user_id": user_id,
+                        "is_typing": message.get("is_typing", False),
+                    },
+                )
 
             elif msg_type == "proctoring_event":
                 from app.core.database import async_session
@@ -109,27 +118,36 @@ async def interview_websocket(websocket: WebSocket, interview_id: int):
                     session.add(event)
                     await session.commit()
 
-                await manager.broadcast(interview_id, {
-                    "type": "proctoring_alert",
-                    "event_type": message.get("event_type"),
-                    "severity": message.get("severity"),
-                })
+                await manager.broadcast(
+                    interview_id,
+                    {
+                        "type": "proctoring_alert",
+                        "event_type": message.get("event_type"),
+                        "severity": message.get("severity"),
+                    },
+                )
 
             elif msg_type == "code_update":
-                await manager.broadcast(interview_id, {
-                    "type": "code_update",
-                    "user_id": user_id,
-                    "code": message.get("code", ""),
-                    "language": message.get("language", ""),
-                })
+                await manager.broadcast(
+                    interview_id,
+                    {
+                        "type": "code_update",
+                        "user_id": user_id,
+                        "code": message.get("code", ""),
+                        "language": message.get("language", ""),
+                    },
+                )
 
     except WebSocketDisconnect:
         manager.disconnect(websocket, interview_id)
-        await manager.broadcast(interview_id, {
-            "type": "user_left",
-            "user_id": user_id,
-            "message": "User disconnected",
-        })
+        await manager.broadcast(
+            interview_id,
+            {
+                "type": "user_left",
+                "user_id": user_id,
+                "message": "User disconnected",
+            },
+        )
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         manager.disconnect(websocket, interview_id)

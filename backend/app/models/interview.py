@@ -63,11 +63,25 @@ class Interview(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
 
-    candidate = relationship("User", back_populates="interviews_as_candidate", foreign_keys=[candidate_id])
-    recruiter = relationship("User", back_populates="interviews_as_recruiter", foreign_keys=[recruiter_id])
+    candidate = relationship(
+        "User", back_populates="interviews_as_candidate", foreign_keys=[candidate_id]
+    )
+    recruiter = relationship(
+        "User", back_populates="interviews_as_recruiter", foreign_keys=[recruiter_id]
+    )
     resume = relationship("Resume")
-    questions = relationship("InterviewQuestion", back_populates="interview", cascade="all, delete-orphan")
-    coding_sessions = relationship("CodingSession", back_populates="interview", cascade="all, delete-orphan")
-    proctoring_events = relationship("ProctoringEvent", back_populates="interview", cascade="all, delete-orphan")
-    report = relationship("InterviewReport", back_populates="interview", uselist=False, cascade="all, delete-orphan")
-    conversation_messages = relationship("ConversationMessage", back_populates="interview", cascade="all, delete-orphan")
+    questions = relationship(
+        "InterviewQuestion", back_populates="interview", cascade="all, delete-orphan"
+    )
+    coding_sessions = relationship(
+        "CodingSession", back_populates="interview", cascade="all, delete-orphan"
+    )
+    proctoring_events = relationship(
+        "ProctoringEvent", back_populates="interview", cascade="all, delete-orphan"
+    )
+    report = relationship(
+        "InterviewReport", back_populates="interview", uselist=False, cascade="all, delete-orphan"
+    )
+    conversation_messages = relationship(
+        "ConversationMessage", back_populates="interview", cascade="all, delete-orphan"
+    )

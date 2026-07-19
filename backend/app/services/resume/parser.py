@@ -94,7 +94,12 @@ def _normalize(data: dict) -> dict:
         skills = [str(skills)]
 
     # experience_years: could be different key names
-    exp_years = data.get("experience_years") or data.get("total_experience_years") or data.get("years_of_experience") or 0
+    exp_years = (
+        data.get("experience_years")
+        or data.get("total_experience_years")
+        or data.get("years_of_experience")
+        or 0
+    )
     if isinstance(exp_years, str):
         exp_years = int("".join(filter(str.isdigit, exp_years)) or "0")
 
@@ -105,22 +110,33 @@ def _normalize(data: dict) -> dict:
             desc = job.get("description") or job.get("responsibilities") or ""
             if isinstance(desc, list):
                 desc = " ".join(desc)
-            experience.append({
-                "title": job.get("title") or job.get("position") or "",
-                "company": job.get("company") or job.get("organization") or "",
-                "duration": job.get("duration") or f"{job.get('start_date', '')}-{job.get('end_date', '')}",
-                "description": desc,
-            })
+            experience.append(
+                {
+                    "title": job.get("title") or job.get("position") or "",
+                    "company": job.get("company") or job.get("organization") or "",
+                    "duration": job.get("duration")
+                    or f"{job.get('start_date', '')}-{job.get('end_date', '')}",
+                    "description": desc,
+                }
+            )
 
     # education: normalize
     education = []
     for edu in data.get("education", []):
         if isinstance(edu, dict):
-            education.append({
-                "degree": edu.get("degree") or edu.get("qualification") or "",
-                "institution": edu.get("institution") or edu.get("school") or edu.get("university") or "",
-                "year": edu.get("year") or edu.get("graduation_year") or edu.get("start_date") or "",
-            })
+            education.append(
+                {
+                    "degree": edu.get("degree") or edu.get("qualification") or "",
+                    "institution": edu.get("institution")
+                    or edu.get("school")
+                    or edu.get("university")
+                    or "",
+                    "year": edu.get("year")
+                    or edu.get("graduation_year")
+                    or edu.get("start_date")
+                    or "",
+                }
+            )
 
     # projects: normalize
     projects = []
@@ -129,11 +145,13 @@ def _normalize(data: dict) -> dict:
             techs = proj.get("technologies") or proj.get("tech_stack") or []
             if isinstance(techs, str):
                 techs = [t.strip() for t in techs.split(",")]
-            projects.append({
-                "name": proj.get("name") or proj.get("title") or "",
-                "description": proj.get("description") or "",
-                "technologies": techs,
-            })
+            projects.append(
+                {
+                    "name": proj.get("name") or proj.get("title") or "",
+                    "description": proj.get("description") or "",
+                    "technologies": techs,
+                }
+            )
 
     # technologies: flat array
     techs = data.get("technologies", [])
@@ -171,10 +189,36 @@ def _normalize(data: dict) -> dict:
 def _fallback_parse(raw_text: str) -> dict:
     lines = raw_text.lower()
     common_skills = [
-        "python", "java", "javascript", "typescript", "c++", "c", "go", "rust",
-        "react", "vue", "angular", "node", "fastapi", "django", "flask", "spring",
-        "postgresql", "mysql", "mongodb", "redis", "docker", "kubernetes", "aws",
-        "gcp", "azure", "git", "linux", "tensorflow", "pytorch", "pandas",
+        "python",
+        "java",
+        "javascript",
+        "typescript",
+        "c++",
+        "c",
+        "go",
+        "rust",
+        "react",
+        "vue",
+        "angular",
+        "node",
+        "fastapi",
+        "django",
+        "flask",
+        "spring",
+        "postgresql",
+        "mysql",
+        "mongodb",
+        "redis",
+        "docker",
+        "kubernetes",
+        "aws",
+        "gcp",
+        "azure",
+        "git",
+        "linux",
+        "tensorflow",
+        "pytorch",
+        "pandas",
     ]
     found_skills = [s for s in common_skills if s in lines]
     return {
