@@ -1,14 +1,15 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.core.storage import save_file, delete_file
+from app.core.storage import delete_file, save_file
 from app.models.resume import Resume
 from app.models.user import User
-from app.schemas.resume import ResumeResponse, ResumeUploadResponse, ResumeParseStatus
+from app.schemas.resume import ResumeResponse, ResumeUploadResponse
 from app.services.resume.parser import extract_text_from_pdf, parse_resume_with_llm
 
 logger = logging.getLogger(__name__)

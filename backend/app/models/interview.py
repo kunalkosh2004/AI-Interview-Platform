@@ -1,8 +1,8 @@
-from datetime import datetime, timezone
-
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, JSON
-from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
+from datetime import UTC, datetime
+
+from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -60,7 +60,7 @@ class Interview(Base):
     # }
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
 
     candidate = relationship("User", back_populates="interviews_as_candidate", foreign_keys=[candidate_id])

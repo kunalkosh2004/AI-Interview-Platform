@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any
+from contextlib import suppress
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from jose import JWTError, jwt
@@ -34,10 +34,8 @@ class ConnectionManager:
     async def broadcast(self, interview_id: int, message: dict):
         if interview_id in self.active_connections:
             for connection in self.active_connections[interview_id]:
-                try:
+                with suppress(Exception):
                     await connection.send_json(message)
-                except Exception:
-                    pass
 
 
 manager = ConnectionManager()

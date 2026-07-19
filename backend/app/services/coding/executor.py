@@ -1,8 +1,9 @@
 import asyncio
 import json
 import logging
-import tempfile
 import os
+import tempfile
+from contextlib import suppress
 from pathlib import Path
 
 from app.core.config import get_settings
@@ -89,11 +90,9 @@ async def _run_single(code: str, language: str, time_limit: int) -> dict:
                 "exit_code": proc.returncode,
                 "execution_time_ms": 0,
             }
-        except asyncio.TimeoutError:
-            try:
+        except TimeoutError:
+            with suppress(ProcessLookupError):
                 proc.kill()
-            except ProcessLookupError:
-                pass
             return {
                 "status": "timeout",
                 "error": f"Execution timed out after {time_limit}s",
@@ -190,7 +189,7 @@ except Exception as e:
                     "tests_passed": 0,
                     "tests_total": len(test_cases),
                 }
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return {
                 "status": "timeout",
                 "error": f"Execution timed out after {time_limit}s",

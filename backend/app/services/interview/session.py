@@ -1,14 +1,13 @@
 import logging
-from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.interview import Interview, InterviewStatus
-from app.models.question import InterviewQuestion, ConversationMessage
+from app.models.interview import Interview
+from app.models.question import ConversationMessage, InterviewQuestion
 from app.services.interview.question_generator import (
-    generate_interview_questions,
     generate_follow_up,
+    generate_interview_questions,
 )
 
 logger = logging.getLogger(__name__)

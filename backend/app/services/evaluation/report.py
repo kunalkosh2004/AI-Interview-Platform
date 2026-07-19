@@ -5,9 +5,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.llm import llm_chat
-from app.models.interview import Interview
-from app.models.question import InterviewQuestion, ConversationMessage
 from app.models.coding import CodingSession, ProctoringEvent
+from app.models.interview import Interview
+from app.models.question import InterviewQuestion
 from app.services.proctoring.browser import calculate_cheating_risk
 
 logger = logging.getLogger(__name__)
@@ -26,13 +26,6 @@ async def generate_interview_report(
         .order_by(InterviewQuestion.order_index)
     )
     questions = questions_result.scalars().all()
-
-    messages_result = await db.execute(
-        select(ConversationMessage)
-        .where(ConversationMessage.interview_id == interview_id)
-        .order_by(ConversationMessage.created_at)
-    )
-    messages = messages_result.scalars().all()
 
     coding_result = await db.execute(
         select(CodingSession).where(CodingSession.interview_id == interview_id)
@@ -75,7 +68,7 @@ async def generate_interview_report(
         "critical_events": sum(1 for e in proctoring_events if e.severity == "critical"),
         "high_events": sum(1 for e in proctoring_events if e.severity == "high"),
         "medium_events": sum(1 for e in proctoring_events if e.severity == "medium"),
-        "event_types": list(set(e.event_type for e in proctoring_events)),
+        "event_types": list({e.event_type for e in proctoring_events}),
         "cheating_risk": cheating_risk,
     }
 

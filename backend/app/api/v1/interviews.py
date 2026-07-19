@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -8,17 +8,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_role
 from app.models.interview import Interview, InterviewStatus
-from app.models.question import InterviewQuestion, ConversationMessage
+from app.models.question import ConversationMessage, InterviewQuestion
 from app.models.resume import Resume
 from app.models.user import User
 from app.schemas.interview import (
-    InterviewCreate,
-    InterviewUpdate,
-    InterviewResponse,
-    QuestionResponse,
     ConversationMessageResponse,
+    InterviewCreate,
+    InterviewResponse,
+    InterviewUpdate,
+    QuestionResponse,
 )
-from app.services.interview.session import start_interview_session, process_candidate_answer
+from app.services.interview.session import process_candidate_answer, start_interview_session
 
 router = APIRouter(prefix="/interviews", tags=["interviews"])
 
@@ -175,7 +175,7 @@ async def start_interview(
         )
 
     interview.status = InterviewStatus.IN_PROGRESS
-    interview.started_at = datetime.now(timezone.utc)
+    interview.started_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(interview)
     return interview
@@ -195,7 +195,7 @@ async def end_interview(
         raise HTTPException(status_code=403, detail="Access denied")
 
     interview.status = InterviewStatus.COMPLETED
-    interview.ended_at = datetime.now(timezone.utc)
+    interview.ended_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(interview)
     return interview

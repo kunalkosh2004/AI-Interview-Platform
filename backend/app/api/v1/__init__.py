@@ -1,5 +1,6 @@
 from fastapi import APIRouter
-from app.api.v1 import auth, interviews, resumes, coding
+
+from app.api.v1 import auth, coding, interviews, resumes
 
 api_router = APIRouter()
 api_router.include_router(auth.router)

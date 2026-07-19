@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 
-from openai import AsyncOpenAI, APIError, APIConnectionError, RateLimitError
+from openai import APIConnectionError, APIError, AsyncOpenAI, RateLimitError
 
 from app.core.config import get_settings
 
