@@ -16,9 +16,12 @@ export function useInterviewWebSocket(
   useEffect(() => {
     if (!token || !interviewId) return;
 
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = window.location.host;
-    const url = `${protocol}//${host}/ws/interview/${interviewId}?token=${token}`;
+    const baseUrl = import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL || "";
+    const wsBase = baseUrl
+      ? baseUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "")
+      : window.location.host;
+    const protocol = baseUrl.startsWith("https") || window.location.protocol === "https:" ? "wss:" : "ws:";
+    const url = `${protocol}//${wsBase}/ws/interview/${interviewId}?token=${token}`;
 
     const ws = new WebSocket(url);
     wsRef.current = ws;
