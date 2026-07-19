@@ -49,7 +49,7 @@ services:
       # If you haven't deployed the frontend yet, deploy it first, copy its URL,
       # then come back and update this line.
       - key: CORS_ORIGINS
-        value: '["https://YOUR-FRONTEND-NAME.onrender.com","http://localhost:5173"]'
+        value: '["https://ai-interview-platform-xi-two.vercel.app","http://localhost:5173","http://localhost:3000"]'
 
       # ── LLM ───────────────────────────────────────────────────────────────
       # CHANGE 2 ─────────────────────────────────────────────────────────────
