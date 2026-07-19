@@ -1,6 +1,7 @@
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings
+from pydantic import field_validator
 
 
 class Settings(BaseSettings):
@@ -58,7 +59,7 @@ class Settings(BaseSettings):
 
     # Celery
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6338/2"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
 
     # Proctoring
     PROCTORING_ENABLED: bool = True
@@ -67,6 +68,13 @@ class Settings(BaseSettings):
     # Code Execution
     CODE_EXECUTION_TIMEOUT: int = 30  # seconds
     CODE_EXECUTION_MEMORY_LIMIT: str = "256m"
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def ensure_async_driver(cls, v: str) -> str:
+        if v.startswith("postgresql://"):
+            v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
 
     model_config = {"env_file": ".env", "case_sensitive": True}
 
