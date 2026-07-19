@@ -1,7 +1,12 @@
+import json
 from functools import lru_cache
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
-from pydantic_settings import BaseSettings
 from pydantic import field_validator
+from pydantic_settings import BaseSettings
+
+# asyncpg-safe query params (everything else from Neon/Heroku URLs gets stripped)
+_ASYNCPG_SAFE_PARAMS = {"ssl", "timeout", "command_timeout", "server_settings"}
 
 
 class Settings(BaseSettings):
@@ -72,7 +77,6 @@ class Settings(BaseSettings):
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v: object) -> list[str]:
-        import json
         if isinstance(v, list):
             return v
         if isinstance(v, str):
@@ -92,40 +96,31 @@ class Settings(BaseSettings):
     @field_validator("DATABASE_URL")
     @classmethod
     def ensure_async_driver(cls, v: str) -> str:
-        from urllib.parse import urlparse, urlunparse, urlencode, parse_qs
-
         # Fix scheme: postgres:// or postgresql:// → postgresql+asyncpg://
         if v.startswith("postgres://"):
             v = v.replace("postgres://", "postgresql+asyncpg://", 1)
         elif v.startswith("postgresql://"):
             v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-        # asyncpg only understands a small set of query params.
-        # Neon / Render append psycopg2-only params like sslmode, channel_binding, options.
-        # Parse the URL, keep only asyncpg-safe params, and rebuild.
+        # Strip psycopg2-only query params (sslmode, channel_binding, options, etc.)
+        # that asyncpg does not accept, and translate sslmode → ssl.
         parsed = urlparse(v)
         if parsed.query:
-            # params accepted by asyncpg / SQLAlchemy's asyncpg dialect
-            ASYNCPG_SAFE = {"ssl", "timeout", "command_timeout", "server_settings"}
             params = parse_qs(parsed.query, keep_blank_values=True)
-
             safe_params: dict[str, list[str]] = {}
             needs_ssl = False
 
             for key, val in params.items():
-                if key in ASYNCPG_SAFE:
+                if key in _ASYNCPG_SAFE_PARAMS:
                     safe_params[key] = val
-                elif key == "sslmode":
-                    # translate sslmode → ssl
-                    if val[0] in ("require", "verify-ca", "verify-full"):
-                        needs_ssl = True
+                elif key == "sslmode" and val[0] in ("require", "verify-ca", "verify-full"):
+                    needs_ssl = True
                 # drop everything else (channel_binding, options, etc.)
 
             if needs_ssl and "ssl" not in safe_params:
                 safe_params["ssl"] = ["require"]
 
-            new_query = urlencode(safe_params, doseq=True)
-            v = urlunparse(parsed._replace(query=new_query))
+            v = urlunparse(parsed._replace(query=urlencode(safe_params, doseq=True)))
 
         return v
 
