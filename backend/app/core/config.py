@@ -69,6 +69,26 @@ class Settings(BaseSettings):
     CODE_EXECUTION_TIMEOUT: int = 30  # seconds
     CODE_EXECUTION_MEMORY_LIMIT: str = "256m"
 
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v: object) -> list[str]:
+        import json
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            v = v.strip()
+            # JSON array format: ["https://foo.com","https://bar.com"]
+            if v.startswith("["):
+                try:
+                    parsed = json.loads(v)
+                    if isinstance(parsed, list):
+                        return [str(i).strip() for i in parsed]
+                except json.JSONDecodeError:
+                    pass
+            # Comma-separated format: https://foo.com,https://bar.com
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return []
+
     @field_validator("DATABASE_URL")
     @classmethod
     def ensure_async_driver(cls, v: str) -> str:
