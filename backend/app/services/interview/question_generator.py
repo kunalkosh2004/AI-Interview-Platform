@@ -53,9 +53,9 @@ async def generate_interview_questions(
 Position: {interview_title}
 {f"Role Description: {interview_description}" if interview_description else ""}
 Candidate: {candidate_name}
-Skills: {', '.join(skills[:20])}
-Technologies: {', '.join(technologies[:20])}
-Domain Expertise: {', '.join(domains)}
+Skills: {", ".join(skills[:20])}
+Technologies: {", ".join(technologies[:20])}
+Domain Expertise: {", ".join(domains)}
 Experience: {years} years
 Education: {education_text}
 Interview Type: {interview_type}
@@ -152,7 +152,7 @@ Question: {question}
 
 Candidate's answer: {candidate_answer}
 
-Candidate's profile: {', '.join(parsed_resume.get('skills', [])[:10])} | {parsed_resume.get('experience_years', 0)} years exp
+Candidate's profile: {", ".join(parsed_resume.get("skills", [])[:10])} | {parsed_resume.get("experience_years", 0)} years exp
 {context}
 
 Analyze the answer and decide what to do next. Return ONLY valid JSON:

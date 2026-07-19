@@ -104,5 +104,5 @@ async def llm_chat(
             last_error = e
 
     raise RuntimeError(
-        f"All LLM providers failed. Tried: {', '.join(chain)}. " f"Last error: {last_error}"
+        f"All LLM providers failed. Tried: {', '.join(chain)}. Last error: {last_error}"
     )

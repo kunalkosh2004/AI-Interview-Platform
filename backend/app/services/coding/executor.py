@@ -151,9 +151,9 @@ async def _run_python_tests(code: str, test_cases: list[dict], time_limit: int) 
         test_code += f"""
 try:
     result = {call}
-    results.append({{"test_case": {i+1}, "passed": result == {expected}, "expected": {expected}, "got": result}})
+    results.append({{"test_case": {i + 1}, "passed": result == {expected}, "expected": {expected}, "got": result}})
 except Exception as e:
-    results.append({{"test_case": {i+1}, "passed": False, "expected": {expected}, "got": str(e)}})
+    results.append({{"test_case": {i + 1}, "passed": False, "expected": {expected}, "got": str(e)}})
 """
     test_code += "\nprint(json.dumps(results))\n"
 

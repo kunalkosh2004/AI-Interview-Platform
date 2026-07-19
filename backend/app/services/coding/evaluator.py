@@ -23,8 +23,8 @@ Code:
 ```
 
 Execution Result:
-- Status: {execution_result.get('status', 'unknown')}
-- Tests Passed: {execution_result.get('tests_passed', 0)}/{execution_result.get('tests_total', 0)}
+- Status: {execution_result.get("status", "unknown")}
+- Tests Passed: {execution_result.get("tests_passed", 0)}/{execution_result.get("tests_total", 0)}
 
 Evaluate the code on these dimensions. Return ONLY valid JSON:
 
