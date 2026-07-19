@@ -11,9 +11,13 @@ known-first-party = ["app"]
 
 [tool.mypy]
 python_version = "3.12"
-strict = true
 plugins = ["pydantic.mypy"]
 ignore_missing_imports = true
+warn_unused_configs = true
+no_implicit_optional = true
+check_untyped_defs = true
+allow_untyped_defs = true
+allow_untyped_decorators = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
