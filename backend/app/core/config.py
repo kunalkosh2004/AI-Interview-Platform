@@ -72,18 +72,40 @@ class Settings(BaseSettings):
     @field_validator("DATABASE_URL")
     @classmethod
     def ensure_async_driver(cls, v: str) -> str:
-        # Render / Neon inject postgres:// or postgresql://
-        # SQLAlchemy asyncpg requires postgresql+asyncpg://
+        from urllib.parse import urlparse, urlunparse, urlencode, parse_qs
+
+        # Fix scheme: postgres:// or postgresql:// → postgresql+asyncpg://
         if v.startswith("postgres://"):
             v = v.replace("postgres://", "postgresql+asyncpg://", 1)
         elif v.startswith("postgresql://"):
             v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-        # asyncpg does not accept ?sslmode=require — replace with ?ssl=require
-        # which SQLAlchemy passes correctly to asyncpg
-        v = v.replace("sslmode=require", "ssl=require")
-        v = v.replace("sslmode=prefer", "ssl=prefer")
-        v = v.replace("sslmode=disable", "ssl=disable")
+        # asyncpg only understands a small set of query params.
+        # Neon / Render append psycopg2-only params like sslmode, channel_binding, options.
+        # Parse the URL, keep only asyncpg-safe params, and rebuild.
+        parsed = urlparse(v)
+        if parsed.query:
+            # params accepted by asyncpg / SQLAlchemy's asyncpg dialect
+            ASYNCPG_SAFE = {"ssl", "timeout", "command_timeout", "server_settings"}
+            params = parse_qs(parsed.query, keep_blank_values=True)
+
+            safe_params: dict[str, list[str]] = {}
+            needs_ssl = False
+
+            for key, val in params.items():
+                if key in ASYNCPG_SAFE:
+                    safe_params[key] = val
+                elif key == "sslmode":
+                    # translate sslmode → ssl
+                    if val[0] in ("require", "verify-ca", "verify-full"):
+                        needs_ssl = True
+                # drop everything else (channel_binding, options, etc.)
+
+            if needs_ssl and "ssl" not in safe_params:
+                safe_params["ssl"] = ["require"]
+
+            new_query = urlencode(safe_params, doseq=True)
+            v = urlunparse(parsed._replace(query=new_query))
 
         return v
 
