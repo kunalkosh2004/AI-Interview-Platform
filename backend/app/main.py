@@ -9,6 +9,8 @@ settings = get_settings()
 
 
 def create_app() -> FastAPI:
+    settings = get_settings()
+    print("CORS_ORIGINS:", settings.CORS_ORIGINS)
     app = FastAPI(
         title=settings.PROJECT_NAME,
         version=settings.VERSION,
