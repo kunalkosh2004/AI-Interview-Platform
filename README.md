@@ -32,7 +32,7 @@ An AI-powered technical interview platform that conducts personalized resume-bas
 ### For Candidates
 - 📄 **Resume Upload & AI Parsing** — Upload a PDF resume; the platform extracts skills, experience, education, and projects using LLMs
 - 🎤 **Voice-Based Interviews** — Answer questions by speaking; Web Speech API transcribes in real time with a live audio level indicator
-- 💬 **AI-Powered Conversation** — Dynamic follow-up questions generated based on your answers and resume
+- 💬 **AI-Powered Conversation** — Dynamic follow-up questions generated based on your answers and resume (Future Implementation)
 - 💻 **Live Coding Environment** — Monaco Editor (same as VS Code) with multi-language support and real-time test case execution
 - 📊 **Interview Progress Tracking** — See your progress, question count, and completion percentage
 
