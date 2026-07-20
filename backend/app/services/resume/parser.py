@@ -17,6 +17,15 @@ def extract_text_from_pdf(file_path: str) -> str:
     return "\n".join(text_parts).strip()
 
 
+def extract_text_from_pdf_bytes(file_bytes: bytes) -> str:
+    doc = fitz.open(stream=file_bytes, filetype="pdf")
+    text_parts = []
+    for page in doc:
+        text_parts.append(page.get_text())
+    doc.close()
+    return "\n".join(text_parts).strip()
+
+
 async def parse_resume_with_llm(raw_text: str) -> dict:
     prompt = f"""Parse this resume into JSON. You MUST return EXACTLY this schema — no extra fields, no different names:
 

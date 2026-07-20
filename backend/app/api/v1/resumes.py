@@ -10,7 +10,7 @@ from app.core.storage import delete_file, save_file
 from app.models.resume import Resume
 from app.models.user import User
 from app.schemas.resume import ResumeResponse, ResumeUploadResponse
-from app.services.resume.parser import extract_text_from_pdf, parse_resume_with_llm
+from app.services.resume.parser import extract_text_from_pdf_bytes, parse_resume_with_llm
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ async def upload_resume(
     await db.commit()
     await db.refresh(resume)
 
-    raw_text = extract_text_from_pdf(file_path)
+    raw_text = extract_text_from_pdf_bytes(file_bytes)
     resume.raw_text = raw_text
 
     parsed_data = await parse_resume_with_llm(raw_text)
