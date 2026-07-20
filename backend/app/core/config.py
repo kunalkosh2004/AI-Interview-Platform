@@ -56,7 +56,8 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str = ""
     AWS_S3_BUCKET: str = ""
     AWS_REGION: str = "us-east-1"
-    STORAGE_BACKEND: str = "local"  # "local" | "s3" | "r2"
+    AWS_ENDPOINT_URL: str = ""  # set to http://localhost:4566 for LocalStack
+    STORAGE_BACKEND: str = "local"  # "local" | "s3"
     LOCAL_STORAGE_PATH: str = "./storage"
 
     # CORS

@@ -14,6 +14,21 @@ def _local_dir() -> Path:
     return path
 
 
+def _s3_client():
+    """Create a boto3 S3 client, pointing at LocalStack if AWS_ENDPOINT_URL is set."""
+    import boto3
+
+    kwargs = {
+        "aws_access_key_id": settings.AWS_ACCESS_KEY_ID,
+        "aws_secret_access_key": settings.AWS_SECRET_ACCESS_KEY,
+        "region_name": settings.AWS_REGION,
+    }
+    if settings.AWS_ENDPOINT_URL:
+        kwargs["endpoint_url"] = settings.AWS_ENDPOINT_URL
+
+    return boto3.client("s3", **kwargs)
+
+
 async def save_file(file_bytes: bytes, filename: str, folder: str = "resumes") -> str:
     if settings.STORAGE_BACKEND == "s3":
         return await _save_to_s3(file_bytes, filename, folder)
@@ -51,36 +66,22 @@ async def _delete_from_local(file_path: str) -> bool:
 
 
 async def _save_to_s3(file_bytes: bytes, filename: str, folder: str) -> str:
-    import boto3
-
     ext = Path(filename).suffix
     unique_name = f"{folder}/{uuid.uuid4().hex}{ext}"
 
-    s3 = boto3.client(
-        "s3",
-        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-        region_name=settings.AWS_REGION,
-    )
+    s3 = _s3_client()
     s3.put_object(
         Bucket=settings.AWS_S3_BUCKET,
         Key=unique_name,
         Body=file_bytes,
-        ContentType="application/pdf",
+        ContentType="application/octet-stream",
     )
     return unique_name
 
 
 async def _delete_from_s3(file_path: str) -> bool:
-    import boto3
-
     try:
-        s3 = boto3.client(
-            "s3",
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name=settings.AWS_REGION,
-        )
+        s3 = _s3_client()
         s3.delete_object(Bucket=settings.AWS_S3_BUCKET, Key=file_path)
         return True
     except Exception:
