@@ -296,6 +296,8 @@ class AnswerResponse(BaseModel):
     evaluation: dict | None = None
     ai_response: str
     next_question_id: int | None = None
+    time_expired: bool = False
+    time_remaining_seconds: float = 0
 
 
 @router.post("/{interview_id}/session/answer", response_model=AnswerResponse)
@@ -314,6 +316,25 @@ async def submit_answer(
 
     if interview.status != InterviewStatus.IN_PROGRESS:
         raise HTTPException(status_code=400, detail="Interview is not in progress")
+
+    # ── Time limit check ───────────────────────────────────────────────────
+    time_remaining_seconds = 0
+    time_expired = False
+    if interview.started_at and interview.duration_minutes:
+        deadline = interview.started_at.timestamp() + interview.duration_minutes * 60
+        now = datetime.now(UTC).timestamp()
+        time_remaining_seconds = max(0, deadline - now)
+        if now >= deadline:
+            time_expired = True
+            interview.status = InterviewStatus.COMPLETED
+            interview.ended_at = datetime.now(UTC)
+            await db.commit()
+            return AnswerResponse(
+                evaluation=None,
+                ai_response="Time is up! Your interview has been automatically submitted.",
+                time_expired=True,
+                time_remaining_seconds=0,
+            )
 
     resume = None
     if interview.resume_id:
@@ -340,7 +361,9 @@ async def submit_answer(
         db=db,
     )
 
-    return AnswerResponse(**result)
+    return AnswerResponse(
+        **result, time_expired=False, time_remaining_seconds=time_remaining_seconds
+    )
 
 
 class ConversationResponse(BaseModel):

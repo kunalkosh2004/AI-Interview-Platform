@@ -22,6 +22,8 @@ import {
   Mic,
   MicOff,
   AlertCircle,
+  Timer,
+  TimerOff,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -161,6 +163,22 @@ export function InterviewPage() {
     mutationFn: ({ questionId, answerText }: { questionId: number; answerText: string }) =>
       submitAnswer(interviewId, questionId, answerText),
     onSuccess: async (data) => {
+      if (data.time_expired) {
+        setTimeRemaining(0);
+        setMessages((prev) => [...prev, {
+          id: Date.now(),
+          role: "ai",
+          content: data.ai_response,
+          message_type: "text",
+          created_at: new Date().toISOString(),
+        }]);
+        setAnswer("");
+        setIsSubmitting(false);
+        toast.error("Time's up!");
+        setTimeout(() => navigate("/candidate"), 3000);
+        return;
+      }
+
       const aiMsg: ConversationMessage = {
         id: Date.now(),
         role: "ai",
@@ -238,6 +256,35 @@ export function InterviewPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // ── Countdown timer ────────────────────────────────────────────────────
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const timeExpired = timeRemaining !== null && timeRemaining <= 0;
+
+  useEffect(() => {
+    if (!sessionStarted || !interview?.started_at || !interview?.duration_minutes) return;
+
+    const started = new Date(interview.started_at).getTime();
+    const deadline = started + interview.duration_minutes * 60 * 1000;
+
+    const tick = () => {
+      const remaining = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      setTimeRemaining(remaining);
+      if (remaining <= 0) {
+        clearInterval(interval);
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [sessionStarted, interview?.started_at, interview?.duration_minutes]);
+
+  const formatTime = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  };
 
   const currentQuestion = questions[currentQuestionIndex];
   const isCodingQuestion = currentQuestion?.question_type === "coding";
@@ -458,15 +505,31 @@ export function InterviewPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)]">
-      {/* Progress Bar */}
+      {/* Progress Bar + Timer */}
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-gray-700">
             Question {currentQuestionIndex + 1} of {questions.length}
           </span>
-          <span className="text-sm text-gray-500">
-            {Math.round(progress)}% complete
-          </span>
+          <div className="flex items-center gap-3">
+            {timeRemaining !== null && (
+              <span
+                className={`flex items-center gap-1.5 text-sm font-semibold ${
+                  timeRemaining <= 60
+                    ? "text-red-600"
+                    : timeRemaining <= 300
+                    ? "text-amber-600"
+                    : "text-gray-600"
+                }`}
+              >
+                {timeExpired ? <TimerOff size={16} /> : <Timer size={16} />}
+                {timeExpired ? "Time's up!" : formatTime(timeRemaining)}
+              </span>
+            )}
+            <span className="text-sm text-gray-500">
+              {Math.round(progress)}% complete
+            </span>
+          </div>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div
@@ -572,32 +635,39 @@ export function InterviewPage() {
               )}
 
               <div className="flex gap-2">
-                <textarea
-                  value={answer}
-                  onChange={(e) => {
-                    if (!isRecording) setAnswer(e.target.value);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSubmitAnswer();
+                {timeExpired ? (
+                  <div className="flex-1 flex items-center justify-center py-6 text-red-600 bg-red-50 rounded-lg border border-red-200">
+                    <TimerOff size={20} className="mr-2" />
+                    <span className="font-medium">Time's up — interview has ended</span>
+                  </div>
+                ) : (
+                  <textarea
+                    value={answer}
+                    onChange={(e) => {
+                      if (!isRecording) setAnswer(e.target.value);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSubmitAnswer();
+                      }
+                    }}
+                    placeholder={
+                      isRecording
+                        ? "Listening… speak your answer"
+                        : micPermission === "granted"
+                        ? "Type your answer or use the mic…"
+                        : "Type your answer…"
                     }
-                  }}
-                  placeholder={
-                    isRecording
-                      ? "Listening… speak your answer"
-                      : micPermission === "granted"
-                      ? "Type your answer or use the mic…"
-                      : "Type your answer…"
-                  }
-                  rows={2}
-                  readOnly={isRecording}
-                  className={`flex-1 resize-none rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-colors ${
-                    isRecording
-                      ? "border-violet-300 bg-violet-50 focus:ring-violet-400 cursor-not-allowed"
-                      : "border-gray-300 focus:ring-blue-500"
-                  }`}
-                />
+                    rows={2}
+                    readOnly={isRecording}
+                    className={`flex-1 resize-none rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-colors ${
+                      isRecording
+                        ? "border-violet-300 bg-violet-50 focus:ring-violet-400 cursor-not-allowed"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
+                  />
+                )}
 
                 {/* Mic toggle (only shown when permission is granted) */}
                 {micPermission === "granted" && (
@@ -616,7 +686,7 @@ export function InterviewPage() {
 
                 <button
                   onClick={handleSubmitAnswer}
-                  disabled={!answer.trim() || isSubmitting}
+                  disabled={!answer.trim() || isSubmitting || timeExpired}
                   className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                 >
                   {isSubmitting ? (

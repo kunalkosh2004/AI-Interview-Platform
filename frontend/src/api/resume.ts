@@ -40,6 +40,8 @@ export async function submitAnswer(
   evaluation: Record<string, unknown> | null;
   ai_response: string;
   next_question_id: number | null;
+  time_expired?: boolean;
+  time_remaining_seconds?: number;
 }> {
   const { data } = await api.post(
     `/interviews/${interviewId}/session/answer`,
