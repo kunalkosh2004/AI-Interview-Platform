@@ -114,6 +114,30 @@ export function InterviewPage() {
     enabled: !!interviewId,
   });
 
+  // Auto-resume: if interview is in_progress, fetch existing session data
+  useEffect(() => {
+    if (!interview || interview.status !== "in_progress") return;
+
+    const resumeSession = async () => {
+      try {
+        const res = await api.get(`/interviews/${interviewId}/session/questions`);
+        const existingQuestions = res.data.questions;
+        if (existingQuestions.length > 0) {
+          const convRes = await api.get(`/interviews/${interviewId}/session/conversation`);
+          setQuestions(existingQuestions);
+          setMessages(convRes.data.messages || []);
+          // Find current question index (first unanswered)
+          const firstUnanswered = existingQuestions.findIndex((q: { answer_text?: string }) => !q.answer_text);
+          setCurrentQuestionIndex(firstUnanswered >= 0 ? firstUnanswered : existingQuestions.length - 1);
+          setSessionStarted(true);
+        }
+      } catch {
+        // No existing session — show lobby
+      }
+    };
+    resumeSession();
+  }, [interview, interviewId]);
+
   const startSessionMutation = useMutation({
     mutationFn: async () => {
       if (interview?.status === "scheduled") {

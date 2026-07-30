@@ -250,10 +250,33 @@ async def start_session(
         raise HTTPException(status_code=400, detail="Interview must be started first")
 
     existing = await db.execute(
-        select(InterviewQuestion).where(InterviewQuestion.interview_id == interview_id)
+        select(InterviewQuestion)
+        .where(InterviewQuestion.interview_id == interview_id)
+        .order_by(InterviewQuestion.order_index)
     )
-    if existing.scalars().first():
-        raise HTTPException(status_code=400, detail="Session already started")
+    existing_questions = existing.scalars().all()
+    if existing_questions:
+        result = await db.execute(
+            select(ConversationMessage)
+            .where(ConversationMessage.interview_id == interview_id)
+            .order_by(ConversationMessage.created_at)
+        )
+        messages = result.scalars().all()
+        welcome_msg = (
+            messages[0]
+            if messages
+            else ConversationMessage(
+                interview_id=interview_id,
+                role="ai",
+                content="Welcome back! Continue with your interview.",
+                message_type="text",
+            )
+        )
+        return StartSessionResponse(
+            interview=InterviewResponse.model_validate(interview),
+            questions=[QuestionResponse.model_validate(q) for q in existing_questions],
+            welcome_message=ConversationMessageResponse.model_validate(welcome_msg),
+        )
 
     session_data = await start_interview_session(interview, db)
 
