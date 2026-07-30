@@ -75,9 +75,16 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
     [sendEvent]
   );
 
-  // Auto-start camera
+  // Auto-start camera — only mark active once video actually plays
   useEffect(() => {
     if (!enabled) return;
+
+    const videoEl = videoRef.current;
+
+    const onPlaying = () => {
+      setCameraActive(true);
+      setCameraError(null);
+    };
 
     const startCamera = async () => {
       try {
@@ -86,11 +93,10 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
           audio: false,
         });
         streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+        if (videoEl) {
+          videoEl.srcObject = stream;
+          videoEl.addEventListener("playing", onPlaying);
         }
-        setCameraActive(true);
-        setCameraError(null);
       } catch {
         setCameraError("Camera access lost");
         setCameraActive(false);
@@ -100,6 +106,7 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
     startCamera();
 
     return () => {
+      if (videoEl) videoEl.removeEventListener("playing", onPlaying);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
