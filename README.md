@@ -429,3 +429,7 @@ If the primary provider fails (rate limit, error), the system automatically retr
 ## License
 
 MIT — see [LICENSE](LICENSE)
+
+---
+
+*Last updated: July 30, 2026*
