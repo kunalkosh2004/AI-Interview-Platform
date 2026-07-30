@@ -395,36 +395,56 @@ async def generate_report(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Report already exists")
 
-    from app.services.evaluation.report import generate_interview_report
+    try:
+        from app.workers import generate_report_task
 
-    report_data = await generate_interview_report(interview_id, db)
+        generate_report_task.delay(interview_id)
 
-    report = InterviewReport(
-        interview_id=interview_id,
-        scores=report_data.get("scores"),
-        strengths=report_data.get("strengths", []),
-        weaknesses=report_data.get("weaknesses", []),
-        improvement_areas=report_data.get("improvement_areas", []),
-        recommendation=report_data.get("recommendation", "borderline"),
-        cheating_risk=report_data.get("cheating_risk", "low"),
-        summary=report_data.get("summary", ""),
-    )
-    db.add(report)
-    await db.commit()
-    await db.refresh(report)
+        placeholder = InterviewReport(
+            interview_id=interview_id,
+            scores=None,
+            strengths=[],
+            weaknesses=[],
+            improvement_areas=[],
+            recommendation=None,
+            cheating_risk="low",
+            summary="Report generation in progress...",
+        )
+        db.add(placeholder)
+        await db.commit()
 
-    return {
-        "id": report.id,
-        "interview_id": report.interview_id,
-        "scores": report.scores,
-        "strengths": report.strengths,
-        "weaknesses": report.weaknesses,
-        "improvement_areas": report.improvement_areas,
-        "recommendation": report.recommendation,
-        "cheating_risk": report.cheating_risk,
-        "summary": report.summary,
-        "created_at": report.created_at.isoformat() if report.created_at else None,
-    }
+        return {"status": "processing", "interview_id": interview_id}
+    except Exception:
+        from app.services.evaluation.report import generate_interview_report
+
+        report_data = await generate_interview_report(interview_id, db)
+
+        report = InterviewReport(
+            interview_id=interview_id,
+            scores=report_data.get("scores"),
+            strengths=report_data.get("strengths", []),
+            weaknesses=report_data.get("weaknesses", []),
+            improvement_areas=report_data.get("improvement_areas", []),
+            recommendation=report_data.get("recommendation", "borderline"),
+            cheating_risk=report_data.get("cheating_risk", "low"),
+            summary=report_data.get("summary", ""),
+        )
+        db.add(report)
+        await db.commit()
+        await db.refresh(report)
+
+        return {
+            "id": report.id,
+            "interview_id": report.interview_id,
+            "scores": report.scores,
+            "strengths": report.strengths,
+            "weaknesses": report.weaknesses,
+            "improvement_areas": report.improvement_areas,
+            "recommendation": report.recommendation,
+            "cheating_risk": report.cheating_risk,
+            "summary": report.summary,
+            "created_at": report.created_at.isoformat() if report.created_at else None,
+        }
 
 
 @router.get("/{interview_id}/report")
@@ -448,6 +468,9 @@ async def get_report(
     report = result.scalar_one_or_none()
     if not report:
         raise HTTPException(status_code=404, detail="Report not generated yet")
+
+    if report.scores is None:
+        return {"status": "processing", "interview_id": interview_id}
 
     return {
         "id": report.id,

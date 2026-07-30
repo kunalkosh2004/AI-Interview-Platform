@@ -60,20 +60,31 @@ async def upload_resume(
     await db.commit()
     await db.refresh(resume)
 
-    raw_text = extract_text_from_pdf_bytes(file_bytes)
-    resume.raw_text = raw_text
+    try:
+        from app.workers import parse_resume_task
 
-    parsed_data = await parse_resume_with_llm(raw_text)
-    resume.parsed_data = parsed_data
+        parse_resume_task.delay(resume.id, file_bytes, file.filename)
 
-    await db.commit()
-    await db.refresh(resume)
+        return ResumeUploadResponse(
+            resume=ResumeResponse.model_validate(resume),
+            message="Resume uploaded. Parsing in progress...",
+            parsing_status="processing",
+        )
+    except Exception:
+        raw_text = extract_text_from_pdf_bytes(file_bytes)
+        resume.raw_text = raw_text
 
-    return ResumeUploadResponse(
-        resume=ResumeResponse.model_validate(resume),
-        message="Resume uploaded and parsed successfully",
-        parsing_status="completed",
-    )
+        parsed_data = await parse_resume_with_llm(raw_text)
+        resume.parsed_data = parsed_data
+
+        await db.commit()
+        await db.refresh(resume)
+
+        return ResumeUploadResponse(
+            resume=ResumeResponse.model_validate(resume),
+            message="Resume uploaded and parsed successfully",
+            parsing_status="completed",
+        )
 
 
 @router.get("/me", response_model=ResumeResponse | None)

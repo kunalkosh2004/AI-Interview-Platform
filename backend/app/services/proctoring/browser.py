@@ -16,6 +16,10 @@ SEVERITY_MAP = {
     "screen_resize": "low",
     "idle_detected": "medium",
     "multiple_monitors": "high",
+    "gaze_off_screen": "medium",
+    "multi_face_detected": "critical",
+    "no_face_detected": "high",
+    "excessive_motion": "medium",
 }
 
 

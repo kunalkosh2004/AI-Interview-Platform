@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { logProctoringEvent } from "@/api/resume";
+import { useEyeTracking } from "@/hooks/useEyeTracking";
+import { useMultiFaceDetection } from "@/hooks/useMultiFaceDetection";
 import {
   Camera,
   CameraOff,
@@ -7,6 +9,8 @@ import {
   MicOff,
   Shield,
   AlertTriangle,
+  Eye,
+  Users,
 } from "lucide-react";
 
 interface ProctoringBarProps {
@@ -20,13 +24,14 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
   const [micActive, setMicActive] = useState(false);
   const [eventCount, setEventCount] = useState(0);
   const [lastAlert, setLastAlert] = useState<string | null>(null);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const startTimeRef = useRef(Date.now());
   const prevFrameRef = useRef<ImageData | null>(null);
 
-  // Check microphone permission state (read-only — user already granted it in lobby)
+  // Check microphone permission state (read-only — user already granted in lobby)
   useEffect(() => {
     if (!enabled) return;
     navigator.permissions
@@ -35,10 +40,7 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
         setMicActive(result.state === "granted");
         result.onchange = () => setMicActive(result.state === "granted");
       })
-      .catch(() => {
-        // Permissions API not supported; optimistically mark as active
-        setMicActive(true);
-      });
+      .catch(() => setMicActive(true));
   }, [enabled]);
 
   const sendEvent = useCallback(
@@ -53,13 +55,27 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
         setLastAlert(eventType.replace(/_/g, " "));
         setTimeout(() => setLastAlert(null), 3000);
       } catch {
-        // silently fail
+        // silently fail — never block the interview
       }
     },
     [interviewId]
   );
 
-  // Auto-start camera when proctoring is enabled
+  // Generic event adapter so hooks can call sendEvent
+  const sendProctoringEvent = useCallback(
+    (event: {
+      event_type: string;
+      severity?: string;
+      confidence?: number;
+      details?: Record<string, unknown>;
+      timestamp_seconds?: number;
+    }) => {
+      sendEvent(event.event_type, event.details);
+    },
+    [sendEvent]
+  );
+
+  // Auto-start camera
   useEffect(() => {
     if (!enabled) return;
 
@@ -150,7 +166,7 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
 
     let animId: number;
     let lastCheck = 0;
-    const CHECK_INTERVAL = 2000; // check every 2s
+    const CHECK_INTERVAL = 2000;
 
     const detectMotion = () => {
       const now = Date.now();
@@ -199,6 +215,23 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
     return () => cancelAnimationFrame(animId);
   }, [cameraActive, sendEvent]);
 
+  // ── Eye tracking ──────────────────────────────────────────────────────────
+  const { isReady: eyeReady, error: eyeError } = useEyeTracking({
+    enabled: enabled && cameraActive,
+    startTime: startTimeRef.current,
+    onEvent: sendProctoringEvent,
+    offScreenThresholdSec: 3,
+  });
+
+  // ── Multi-face detection ──────────────────────────────────────────────────
+  const { isReady: faceReady, faceCount } = useMultiFaceDetection({
+    videoRef,
+    enabled: enabled && cameraActive,
+    startTime: startTimeRef.current,
+    onEvent: sendProctoringEvent,
+    intervalMs: 2000,
+  });
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -209,11 +242,11 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
   }, []);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center gap-4">
+    <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center gap-4 flex-wrap">
       {/* Camera preview */}
       <div className="relative">
         {cameraActive ? (
-          <div className="w-20 h-15 rounded-lg overflow-hidden bg-gray-900 border border-gray-300">
+          <div className="w-20 rounded-lg overflow-hidden bg-gray-900 border border-gray-300" style={{ height: 60 }}>
             <video
               ref={videoRef}
               autoPlay
@@ -224,15 +257,34 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
             />
           </div>
         ) : (
-          <div className="w-20 h-15 rounded-lg bg-gray-100 border border-gray-300 flex items-center justify-center">
+          <div
+            className="w-20 rounded-lg bg-gray-100 border border-gray-300 flex items-center justify-center"
+            style={{ height: 60 }}
+          >
             <CameraOff size={20} className="text-gray-400" />
           </div>
         )}
         <canvas ref={canvasRef} className="hidden" />
+
+        {/* Face count badge */}
+        {faceReady && (
+          <span
+            className={`absolute -top-1.5 -right-1.5 text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none ${
+              faceCount > 1
+                ? "bg-red-500 text-white"
+                : faceCount === 0
+                ? "bg-amber-400 text-white"
+                : "bg-green-500 text-white"
+            }`}
+          >
+            {faceCount}
+          </span>
+        )}
       </div>
 
-      {/* Camera status indicator (no toggle — camera is always required) */}
-      <div className="flex items-center gap-1.5 text-xs font-medium">
+      {/* Status pills */}
+      <div className="flex items-center gap-1.5 flex-wrap text-xs font-medium">
+        {/* Camera */}
         {cameraActive ? (
           <span className="flex items-center gap-1.5 text-green-700 bg-green-100 px-3 py-1.5 rounded-lg">
             <Camera size={14} />
@@ -245,7 +297,7 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
           </span>
         )}
 
-        {/* Mic status pill */}
+        {/* Mic */}
         {micActive ? (
           <span className="flex items-center gap-1.5 text-violet-700 bg-violet-100 px-3 py-1.5 rounded-lg">
             <Mic size={14} />
@@ -257,9 +309,36 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
             Mic Off
           </span>
         )}
+
+        {/* Eye tracking */}
+        {!eyeError ? (
+          <span
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${
+              eyeReady
+                ? "text-blue-700 bg-blue-100"
+                : "text-gray-500 bg-gray-100"
+            }`}
+          >
+            <Eye size={14} />
+            {eyeReady ? "Eye Tracking" : "Loading Eye..."}
+          </span>
+        ) : (
+          <span className="flex items-center gap-1.5 text-gray-400 bg-gray-50 px-3 py-1.5 rounded-lg" title={eyeError}>
+            <Eye size={14} />
+            Eye N/A
+          </span>
+        )}
+
+        {/* Multi-face */}
+        {faceReady && faceCount > 1 && (
+          <span className="flex items-center gap-1.5 text-red-700 bg-red-100 px-3 py-1.5 rounded-lg animate-pulse">
+            <Users size={14} />
+            {faceCount} Faces!
+          </span>
+        )}
       </div>
 
-      {/* Status */}
+      {/* Right-side status */}
       <div className="flex items-center gap-3 ml-auto text-xs">
         <div className="flex items-center gap-1.5 text-green-600">
           <Shield size={14} />
@@ -269,7 +348,9 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
         {eventCount > 0 && (
           <div className="flex items-center gap-1 text-amber-600">
             <AlertTriangle size={12} />
-            <span>{eventCount} event{eventCount !== 1 ? "s" : ""}</span>
+            <span>
+              {eventCount} event{eventCount !== 1 ? "s" : ""}
+            </span>
           </div>
         )}
 
