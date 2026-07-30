@@ -35,17 +35,13 @@ def generate_report_task(self, interview_id: int) -> dict:
         return result
     except Exception as exc:
         logger.error(f"Report generation failed for interview {interview_id}: {exc}")
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
 
 async def _generate_report(interview_id: int) -> dict:
-    from sqlalchemy import select
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-    from app.models.coding import InterviewReport, ProctoringEvent
-    from app.models.coding import CodingSession
-    from app.models.interview import Interview
-    from app.models.question import InterviewQuestion
+    from app.models.coding import InterviewReport
     from app.services.evaluation.report import generate_interview_report
 
     engine = create_async_engine(settings.DATABASE_URL, echo=False)
@@ -80,7 +76,7 @@ def parse_resume_task(self, resume_id: int, file_bytes: bytes, file_name: str) -
         return result
     except Exception as exc:
         logger.error(f"Resume parsing failed for resume {resume_id}: {exc}")
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
 
 async def _parse_resume(resume_id: int, file_bytes: bytes, file_name: str) -> dict:
