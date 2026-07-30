@@ -319,13 +319,11 @@ async def submit_answer(
 
     # ── Time limit check ───────────────────────────────────────────────────
     time_remaining_seconds = 0
-    time_expired = False
     if interview.started_at and interview.duration_minutes:
         deadline = interview.started_at.timestamp() + interview.duration_minutes * 60
         now = datetime.now(UTC).timestamp()
         time_remaining_seconds = max(0, deadline - now)
         if now >= deadline:
-            time_expired = True
             interview.status = InterviewStatus.COMPLETED
             interview.ended_at = datetime.now(UTC)
             await db.commit()
