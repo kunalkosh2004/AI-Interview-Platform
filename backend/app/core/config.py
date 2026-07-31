@@ -25,8 +25,8 @@ class Settings(BaseSettings):
     # JWT
     JWT_SECRET_KEY: str = "change-me-in-production"
     JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 180
+    JWT_REFRESH_TOKEN_EXPIRE_HOURS: int = 3
 
     # AI / LLM
     LLM_PROVIDER: str = "gemini"  # "openai" | "gemini" | "anthropic" | "groq" | "openrouter"
