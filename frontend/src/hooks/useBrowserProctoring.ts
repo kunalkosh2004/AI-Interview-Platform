@@ -76,11 +76,39 @@ export function useBrowserProctoring(
       });
     };
 
+    const isScreenshotShortcut = (e: KeyboardEvent) => {
+      if (e.key === "PrintScreen" || e.code === "PrintScreen") return true;
+      if (e.metaKey && e.shiftKey && /^[345]$/.test(e.key)) return true;
+      if (e.metaKey && e.shiftKey && e.ctrlKey && e.key === "4") return true;
+      if (e.shiftKey && e.key.toLowerCase() === "s" && e.metaKey) return true;
+      return false;
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isScreenshotShortcut(e)) {
+        e.preventDefault();
+        sendProctoringEvent({
+          event_type: "screenshot_attempt",
+          severity: "high",
+          confidence: 1.0,
+          details: {
+            key: e.key,
+            code: e.code,
+            meta: e.metaKey,
+            ctrl: e.ctrlKey,
+            shift: e.shiftKey,
+          },
+          timestamp_seconds: getTimestamp(),
+        });
+        return;
+      }
+
       if (
         e.key === "F12" ||
         (e.ctrlKey && e.shiftKey && (e.key === "I" || e.key === "J" || e.key === "C")) ||
-        (e.ctrlKey && e.key === "u")
+        (e.metaKey && e.altKey && (e.key === "I" || e.key === "J" || e.key === "C")) ||
+        (e.ctrlKey && e.key === "u") ||
+        (e.metaKey && e.key === "u")
       ) {
         e.preventDefault();
         sendProctoringEvent({

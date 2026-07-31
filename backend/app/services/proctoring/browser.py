@@ -17,6 +17,7 @@ SEVERITY_MAP = {
     "idle_detected": "medium",
     "multiple_monitors": "high",
     "gaze_off_screen": "medium",
+    "screenshot_attempt": "high",
     "multi_face_detected": "critical",
     "no_face_detected": "high",
     "excessive_motion": "medium",

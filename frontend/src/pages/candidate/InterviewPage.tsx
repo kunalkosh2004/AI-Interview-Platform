@@ -80,14 +80,19 @@ export function InterviewPage() {
         audio: false,
       });
       setCameraStream(stream);
-      if (lobbyVideoRef.current) {
-        lobbyVideoRef.current.srcObject = stream;
-      }
       setCameraPermission("granted");
     } catch {
       setCameraPermission("denied");
     }
   }, []);
+
+  // Attach stream once the <video> element is mounted (after permission granted)
+  useEffect(() => {
+    const video = lobbyVideoRef.current;
+    if (!video || !cameraStream) return;
+    video.srcObject = cameraStream;
+    video.play().catch(() => {});
+  }, [cameraStream, cameraPermission]);
 
   // Keep textarea in sync with live speech transcript
   useEffect(() => {

@@ -140,43 +140,64 @@ async def generate_follow_up(
     question: str,
     candidate_answer: str,
     parsed_resume: dict,
-    previous_questions: list[str] = None,
+    previous_questions: list[str] | None = None,
+    conversation_history: list[dict] | None = None,
 ) -> dict:
-    context = ""
+    # Build a compact conversation transcript for the LLM
+    history_text = ""
+    if conversation_history:
+        recent = conversation_history[-10:]  # last 10 turns to avoid token overuse
+        lines = []
+        for msg in recent:
+            role_label = "Interviewer" if msg["role"] == "ai" else "Candidate"
+            lines.append(f"{role_label}: {msg['content'][:300]}")
+        history_text = "\n".join(lines)
+
+    previous_qs_text = ""
     if previous_questions:
-        context = f"\nPrevious questions asked: {', '.join(previous_questions[-5:])}"
+        previous_qs_text = (
+            "\nPrevious questions already asked (DO NOT repeat these): "
+            + " | ".join(previous_questions[-5:])
+        )
 
-    prompt = f"""You are an AI technical interviewer. The candidate was asked:
+    prompt = f"""You are an AI technical interviewer conducting a live interview.
 
+=== CONVERSATION SO FAR ===
+{history_text if history_text else "(No prior conversation)"}
+{previous_qs_text}
+
+=== CURRENT QUESTION & ANSWER ===
 Question: {question}
 
 Candidate's answer: {candidate_answer}
 
-Candidate's profile: {", ".join(parsed_resume.get("skills", [])[:10])} | {parsed_resume.get("experience_years", 0)} years exp
-{context}
+=== CANDIDATE PROFILE ===
+Skills: {", ".join(parsed_resume.get("skills", [])[:10])}
+Experience: {parsed_resume.get("experience_years", 0)} years
 
-Analyze the answer and decide what to do next. Return ONLY valid JSON:
+Analyze the answer in the context of the full conversation above, then decide what to do next.
+Return ONLY valid JSON:
 
 {{
     "evaluation": {{
         "correctness": "correct" | "partially_correct" | "incorrect",
         "depth": "shallow" | "moderate" | "deep",
-        "feedback": "brief feedback on the answer"
+        "feedback": "1-2 sentence constructive feedback referencing what they said"
     }},
     "next_action": "follow_up" | "next_question",
-    "follow_up_question": "If follow_up, the follow-up question. Otherwise null.",
+    "follow_up_question": "If follow_up, a specific follow-up question that digs deeper into a gap you identified. Otherwise null.",
     "reasoning": "Why you chose this next action"
 }}
 
 Rules:
-- DEFAULT to "next_question" — move on to the next topic
-- ONLY ask a follow_up if the answer is critically incomplete or fundamentally wrong AND a clarification would genuinely help
-- Never ask follow-ups just because the answer was short — a correct short answer is fine
-- If the answer is correct (even if brief), give brief positive feedback and move to next_question
-- If the answer is incorrect, briefly correct them and move to next_question
-- Aim to cover more questions rather than going deep on each one
-- For coding questions: if the code works, move on. Don't ask follow-ups about complexity unless the answer is wrong
-- Never repeat questions
+- DEFAULT to "next_question" — coverage matters more than depth
+- Only use "follow_up" if:
+  a) The answer reveals a significant misconception that needs immediate correction, OR
+  b) The answer is critically incomplete on a core concept and a single targeted follow-up would clarify it
+- A brief but correct answer → next_question
+- If the answer is incorrect, provide correct feedback and still move on
+- Never repeat a question from the previous questions list
+- Tailor the follow-up question to what the candidate actually said, not a generic probe
 - Be encouraging but rigorous"""
 
     try:

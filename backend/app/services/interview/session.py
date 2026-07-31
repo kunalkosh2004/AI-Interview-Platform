@@ -84,6 +84,7 @@ async def process_candidate_answer(
 
     question.answer_text = answer_text
 
+    # Persist candidate message first
     candidate_msg = ConversationMessage(
         interview_id=interview_id,
         role="candidate",
@@ -91,20 +92,29 @@ async def process_candidate_answer(
         message_type="text",
     )
     db.add(candidate_msg)
+    await db.flush()
 
+    # ── Build rich conversation history for the LLM ────────────────────────
     result = await db.execute(
         select(ConversationMessage)
         .where(ConversationMessage.interview_id == interview_id)
         .order_by(ConversationMessage.created_at)
     )
     all_messages = result.scalars().all()
+
+    # Build a structured conversation history list
+    conversation_history = [{"role": m.role, "content": m.content} for m in all_messages]
+
+    # Collect previous questions text for deduplication
     previous_questions = [m.content for m in all_messages if m.role == "ai" and "?" in m.content]
 
+    # ── Generate follow-up with full context ──────────────────────────────
     follow_up = await generate_follow_up(
         question=question.question_text,
         candidate_answer=answer_text,
         parsed_resume=parsed_resume,
         previous_questions=previous_questions,
+        conversation_history=conversation_history,
     )
 
     evaluation = follow_up.get("evaluation", {})
@@ -145,7 +155,7 @@ async def process_candidate_answer(
     return {
         "evaluation": question.ai_evaluation,
         "ai_response": ai_response,
-        "next_question_id": _extract_question_id(ai_response),
+        "next_question_id": None,
     }
 
 
@@ -171,7 +181,3 @@ def _score_from_evaluation(evaluation: dict) -> float:
     scores = {"correct": 8.0, "partially_correct": 5.0, "incorrect": 2.0}
     depth_bonus = {"deep": 1.5, "moderate": 0.5, "shallow": 0.0}
     return min(10.0, scores.get(correctness, 5.0) + depth_bonus.get(depth, 0.0))
-
-
-def _extract_question_id(ai_response: str) -> int | None:
-    return None
