@@ -21,6 +21,18 @@ interface UseMultiFaceDetectionOptions {
 }
 
 // ---- MediaPipe type stubs (CDN-loaded, no npm package needed) ----
+interface FaceDetectionResult {
+  detections: Array<{
+    score: number[];
+    boundingBox?: {
+      xCenter: number;
+      yCenter: number;
+      width: number;
+      height: number;
+    };
+  }>;
+}
+
 declare global {
   interface Window {
     FaceDetection?: new (config: { locateFile: (f: string) => string }) => {
@@ -28,13 +40,19 @@ declare global {
         model: "short" | "full";
         minDetectionConfidence: number;
       }) => void;
-      onResults: (
-        cb: (results: { detections: Array<{ score: number[] }> }) => void
-      ) => void;
+      onResults: (cb: (results: FaceDetectionResult) => void) => void;
       send: (input: { image: HTMLVideoElement }) => Promise<void>;
       close: () => void;
     };
   }
+}
+
+/** Normalized (0-1) bounding box of a detected face */
+export interface DetectedFace {
+  xCenter: number;
+  yCenter: number;
+  width: number;
+  height: number;
 }
 
 const CDN_BASE =
@@ -80,6 +98,7 @@ export function useMultiFaceDetection({
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [faceCount, setFaceCount] = useState(0);
+  const [detections, setDetections] = useState<DetectedFace[]>([]);
 
   const detectorRef = useRef<InstanceType<NonNullable<Window["FaceDetection"]>> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -131,6 +150,11 @@ export function useMultiFaceDetection({
           );
           const count = faces.length;
           setFaceCount(count);
+          setDetections(
+            faces
+              .map((d) => d.boundingBox)
+              .filter((b): b is DetectedFace => !!b)
+          );
 
           if (count > 1) {
             noFaceCountRef.current = 0;
@@ -186,5 +210,5 @@ export function useMultiFaceDetection({
     };
   }, [enabled, analyzeFrame, intervalMs, minScore, onEvent, getTimestamp]);
 
-  return { isReady, error, faceCount };
+  return { isReady, error, faceCount, detections };
 }

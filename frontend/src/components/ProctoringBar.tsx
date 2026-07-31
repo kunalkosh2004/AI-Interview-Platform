@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Eye,
   Users,
+  VideoOff,
 } from "lucide-react";
 
 interface ProctoringBarProps {
@@ -24,12 +25,17 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
   const [micActive, setMicActive] = useState(false);
   const [eventCount, setEventCount] = useState(0);
   const [lastAlert, setLastAlert] = useState<string | null>(null);
+  const [videoBlack, setVideoBlack] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const bboxCanvasRef = useRef<HTMLCanvasElement>(null);
   const startTimeRef = useRef(Date.now());
   const prevFrameRef = useRef<ImageData | null>(null);
+  const retryRef = useRef(false);
+  const cameraActiveRef = useRef(false);
+  cameraActiveRef.current = cameraActive;
 
   // Check microphone permission state (read-only — user already granted in lobby)
   useEffect(() => {
@@ -75,11 +81,13 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
     [sendEvent]
   );
 
-  // Auto-start camera — only mark active once video actually plays
+  // Auto-start camera — only mark active once video actually has frames.
+  // If the feed stays black for too long, retry once with fresh stream.
   useEffect(() => {
     if (!enabled) return;
 
     const videoEl = videoRef.current;
+    let blackWatchdog: ReturnType<typeof setInterval> | null = null;
 
     const onPlaying = () => {
       setCameraActive(true);
@@ -96,6 +104,7 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
         if (videoEl) {
           videoEl.srcObject = stream;
           videoEl.addEventListener("playing", onPlaying);
+          videoEl.play().catch(() => {});
         }
       } catch {
         setCameraError("Camera access lost");
@@ -105,13 +114,37 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
 
     startCamera();
 
+    // Watchdog: if the camera is marked active but frames never arrive
+    // (all-black / no dimensions), flag it and retry once.
+    blackWatchdog = setInterval(() => {
+      const v = videoRef.current;
+      if (!v || !cameraActiveRef.current) return;
+      if (v.videoWidth > 0 && v.videoHeight > 0) return;
+
+      setVideoBlack(true);
+      if (!retryRef.current) {
+        retryRef.current = true;
+        // Stop old stream, grab a fresh one
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
+        }
+        v.removeAttribute("src");
+        v.load();
+        startCamera();
+      }
+    }, 2500);
+
     return () => {
+      if (blackWatchdog) clearInterval(blackWatchdog);
       if (videoEl) videoEl.removeEventListener("playing", onPlaying);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
       }
       setCameraActive(false);
+      setVideoBlack(false);
+      retryRef.current = false;
     };
   }, [enabled]);
 
@@ -231,13 +264,38 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
   });
 
   // ── Multi-face detection ──────────────────────────────────────────────────
-  const { isReady: faceReady, faceCount } = useMultiFaceDetection({
+  const { isReady: faceReady, faceCount, detections } = useMultiFaceDetection({
     videoRef,
     enabled: enabled && cameraActive,
     startTime: startTimeRef.current,
     onEvent: sendProctoringEvent,
     intervalMs: 2000,
   });
+
+  // ── Draw face bounding boxes over the camera preview ──────────────────────
+  useEffect(() => {
+    if (!faceReady || detections.length === 0) return;
+    const canvas = bboxCanvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = faceCount > 1 ? "#ef4444" : "#22c55e";
+    ctx.lineWidth = 2;
+
+    for (const d of detections) {
+      // bbox is normalized to the (non-mirrored) video frame;
+      // preview is mirrored via scaleX(-1), so mirror x back.
+      const x = (1 - d.xCenter - d.width / 2) * W;
+      const y = (d.yCenter - d.height / 2) * H;
+      const w = d.width * W;
+      const h = d.height * H;
+      ctx.strokeRect(x, y, w, h);
+    }
+  }, [faceReady, detections, faceCount]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -262,6 +320,21 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
               className="w-full h-full object-cover"
               style={{ transform: "scaleX(-1)" }}
             />
+            {/* Face bbox overlay */}
+            <canvas
+              ref={bboxCanvasRef}
+              width={80}
+              height={60}
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              style={{ transform: "scaleX(-1)" }}
+            />
+            {/* Black frame warning */}
+            {videoBlack && (
+              <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-0.5">
+                <VideoOff size={14} className="text-red-400" />
+                <span className="text-[8px] text-red-300 font-medium leading-none">No feed</span>
+              </div>
+            )}
           </div>
         ) : (
           <div
