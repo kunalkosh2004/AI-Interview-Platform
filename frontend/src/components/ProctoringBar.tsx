@@ -92,23 +92,47 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
     const onPlaying = () => {
       setCameraActive(true);
       setCameraError(null);
+      setVideoBlack(false);
     };
 
-    const startCamera = async () => {
+    // Retry getUserMedia a few times — the lobby's stream may still be
+    // releasing the camera when the session view mounts, which makes the
+    // first request fail with NotReadableError/NotAllowedError.
+    let cancelled = false;
+    const retryTimers: ReturnType<typeof setTimeout>[] = [];
+
+    const startCamera = async (attempt = 0): Promise<void> => {
+      if (cancelled) return;
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { width: 320, height: 240, facingMode: "user" },
           audio: false,
         });
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
         streamRef.current = stream;
         if (videoEl) {
           videoEl.srcObject = stream;
           videoEl.addEventListener("playing", onPlaying);
           videoEl.play().catch(() => {});
         }
-      } catch {
-        setCameraError("Camera access lost");
-        setCameraActive(false);
+      } catch (err) {
+        if (attempt < 4) {
+          // 400ms → 800ms → 1600ms → 3200ms backoff
+          const delay = 400 * 2 ** attempt;
+          retryTimers.push(setTimeout(() => startCamera(attempt + 1), delay));
+        } else {
+          const name =
+            err instanceof DOMException
+              ? err.name
+              : err instanceof Error
+              ? err.message
+              : "Camera access failed";
+          setCameraError(`Camera unavailable (${name})`);
+          setCameraActive(false);
+        }
       }
     };
 
@@ -136,6 +160,8 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
     }, 2500);
 
     return () => {
+      cancelled = true;
+      retryTimers.forEach((t) => clearTimeout(t));
       if (blackWatchdog) clearInterval(blackWatchdog);
       if (videoEl) videoEl.removeEventListener("playing", onPlaying);
       if (streamRef.current) {
@@ -371,9 +397,13 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
             Camera Active
           </span>
         ) : (
-          <span className="flex items-center gap-1.5 text-red-700 bg-red-100 px-3 py-1.5 rounded-lg">
-            <CameraOff size={14} />
-            {cameraError ?? "Camera Off"}
+          <span className="flex items-center gap-1.5 text-amber-600 bg-amber-100 px-3 py-1.5 rounded-lg">
+            {cameraError ? (
+              <CameraOff size={14} />
+            ) : (
+              <Camera size={14} className="animate-pulse" />
+            )}
+            {cameraError ?? "Starting camera..."}
           </span>
         )}
 
