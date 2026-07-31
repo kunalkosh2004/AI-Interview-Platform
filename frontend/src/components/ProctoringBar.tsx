@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { logProctoringEvent } from "@/api/resume";
 import { useEyeTracking } from "@/hooks/useEyeTracking";
-import { useMultiFaceDetection } from "@/hooks/useMultiFaceDetection";
+import { useYoloDetection } from "@/hooks/useYoloDetection";
 import {
   Camera,
   CameraOff,
@@ -86,8 +86,8 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
   useEffect(() => {
     if (!enabled) return;
 
-    const videoEl = videoRef.current;
     let blackWatchdog: ReturnType<typeof setInterval> | null = null;
+    const videoEl = videoRef.current;
 
     const onPlaying = () => {
       setCameraActive(true);
@@ -101,6 +101,15 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
     let cancelled = false;
     const retryTimers: ReturnType<typeof setTimeout>[] = [];
 
+    const attachStream = (stream: MediaStream) => {
+      const videoEl = videoRef.current;
+      if (!videoEl) return;
+      videoEl.removeEventListener("playing", onPlaying);
+      videoEl.srcObject = stream;
+      videoEl.addEventListener("playing", onPlaying);
+      videoEl.play().catch(() => {});
+    };
+
     const startCamera = async (attempt = 0): Promise<void> => {
       if (cancelled) return;
       try {
@@ -113,11 +122,7 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
           return;
         }
         streamRef.current = stream;
-        if (videoEl) {
-          videoEl.srcObject = stream;
-          videoEl.addEventListener("playing", onPlaying);
-          videoEl.play().catch(() => {});
-        }
+        attachStream(stream);
       } catch (err) {
         if (attempt < 4) {
           // 400ms → 800ms → 1600ms → 3200ms backoff
@@ -194,11 +199,35 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
       e.preventDefault();
       sendEvent("right_click");
     };
+    const isScreenshotShortcut = (e: KeyboardEvent) => {
+      if (e.key === "PrintScreen" || e.code === "PrintScreen") return true;
+      // macOS: Cmd+Shift+3/4/5 (and Cmd+Shift+Ctrl+4)
+      if (e.metaKey && e.shiftKey && /^[345]$/.test(e.key)) return true;
+      if (e.metaKey && e.shiftKey && e.ctrlKey && e.key === "4") return true;
+      // Windows Snip & Sketch: Win+Shift+S
+      if (e.shiftKey && e.key.toLowerCase() === "s" && e.metaKey) return true;
+      return false;
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isScreenshotShortcut(e)) {
+        e.preventDefault();
+        sendEvent("screenshot_attempt", {
+          key: e.key,
+          code: e.code,
+          meta: e.metaKey,
+          ctrl: e.ctrlKey,
+          shift: e.shiftKey,
+        });
+        return;
+      }
+
       if (
         e.key === "F12" ||
         (e.ctrlKey && e.shiftKey && ["I", "J", "C"].includes(e.key)) ||
-        (e.ctrlKey && e.key === "u")
+        (e.metaKey && e.altKey && ["I", "J", "C"].includes(e.key)) ||
+        (e.ctrlKey && e.key === "u") ||
+        (e.metaKey && e.key === "u")
       ) {
         e.preventDefault();
         sendEvent("devtools_open", { key: e.key });
@@ -281,21 +310,22 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
     return () => cancelAnimationFrame(animId);
   }, [cameraActive, sendEvent]);
 
-  // ── Eye tracking ──────────────────────────────────────────────────────────
+  // ── Eye tracking (uses same camera stream as preview) ─────────────────────
   const { isReady: eyeReady, error: eyeError } = useEyeTracking({
+    videoRef,
     enabled: enabled && cameraActive,
     startTime: startTimeRef.current,
     onEvent: sendProctoringEvent,
     offScreenThresholdSec: 3,
   });
 
-  // ── Multi-face detection ──────────────────────────────────────────────────
-  const { isReady: faceReady, faceCount, detections } = useMultiFaceDetection({
+  // ── Person/face detection (YOLOv8n via ONNX Runtime Web) ─────────────────
+  const { isReady: faceReady, count: faceCount, detections } = useYoloDetection({
     videoRef,
     enabled: enabled && cameraActive,
     startTime: startTimeRef.current,
     onEvent: sendProctoringEvent,
-    intervalMs: 2000,
+    intervalMs: 1500,
   });
 
   // ── Draw face bounding boxes over the camera preview ──────────────────────
@@ -334,19 +364,29 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center gap-4 flex-wrap">
-      {/* Camera preview */}
+      {/* Camera preview — video always mounted so ref is available before "playing" */}
       <div className="relative">
-        {cameraActive ? (
-          <div className="w-20 rounded-lg overflow-hidden bg-gray-900 border border-gray-300" style={{ height: 60 }}>
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              playsInline
-              className="w-full h-full object-cover"
-              style={{ transform: "scaleX(-1)" }}
-            />
-            {/* Face bbox overlay */}
+        <div
+          className={`w-20 rounded-lg overflow-hidden border border-gray-300 ${
+            cameraActive ? "bg-gray-900" : "bg-gray-100"
+          }`}
+          style={{ height: 60 }}
+        >
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            className={`w-full h-full object-cover ${cameraActive ? "" : "hidden"}`}
+            style={{ transform: "scaleX(-1)" }}
+          />
+          {!cameraActive && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <CameraOff size={20} className="text-gray-400" />
+            </div>
+          )}
+          {/* Face bbox overlay */}
+          {cameraActive && (
             <canvas
               ref={bboxCanvasRef}
               width={80}
@@ -354,22 +394,15 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
               className="absolute inset-0 w-full h-full pointer-events-none"
               style={{ transform: "scaleX(-1)" }}
             />
-            {/* Black frame warning */}
-            {videoBlack && (
-              <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-0.5">
-                <VideoOff size={14} className="text-red-400" />
-                <span className="text-[8px] text-red-300 font-medium leading-none">No feed</span>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div
-            className="w-20 rounded-lg bg-gray-100 border border-gray-300 flex items-center justify-center"
-            style={{ height: 60 }}
-          >
-            <CameraOff size={20} className="text-gray-400" />
-          </div>
-        )}
+          )}
+          {/* Black frame warning */}
+          {cameraActive && videoBlack && (
+            <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-0.5">
+              <VideoOff size={14} className="text-red-400" />
+              <span className="text-[8px] text-red-300 font-medium leading-none">No feed</span>
+            </div>
+          )}
+        </div>
         <canvas ref={canvasRef} className="hidden" />
 
         {/* Face count badge */}
