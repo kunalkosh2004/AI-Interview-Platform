@@ -92,13 +92,13 @@ export function CandidateDashboard() {
                     {interview.status.replace("_", " ")}
                   </span>
 
-                  {(interview.status === "scheduled" || interview.status === "in_progress") && (
+                  {interview.status === "scheduled" && (
                     <Link
                       to={`/interview/${interview.id}`}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                     >
                       <Play size={14} />
-                      {interview.status === "scheduled" ? "Start" : "Continue"}
+                      Start
                     </Link>
                   )}
                 </div>

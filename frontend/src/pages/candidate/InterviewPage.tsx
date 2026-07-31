@@ -116,28 +116,24 @@ export function InterviewPage() {
     enabled: !!interviewId,
   });
 
-  // Auto-resume: if interview is in_progress, fetch existing session data
+  // If the interview is already in progress with an active session,
+  // deny re-entry — candidate cannot attend the interview again.
+  const [rejoinDenied, setRejoinDenied] = useState(false);
+
   useEffect(() => {
     if (!interview || interview.status !== "in_progress") return;
 
-    const resumeSession = async () => {
+    const checkRejoin = async () => {
       try {
         const res = await api.get(`/interviews/${interviewId}/session/questions`);
-        const existingQuestions = res.data.questions;
-        if (existingQuestions.length > 0) {
-          const convRes = await api.get(`/interviews/${interviewId}/session/conversation`);
-          setQuestions(existingQuestions);
-          setMessages(convRes.data.messages || []);
-          // Find current question index (first unanswered)
-          const firstUnanswered = existingQuestions.findIndex((q: { answer_text?: string }) => !q.answer_text);
-          setCurrentQuestionIndex(firstUnanswered >= 0 ? firstUnanswered : existingQuestions.length - 1);
-          setSessionStarted(true);
+        if (res.data.questions.length > 0) {
+          setRejoinDenied(true);
         }
       } catch {
-        // No existing session — show lobby
+        // No session — allow starting from lobby
       }
     };
-    resumeSession();
+    checkRejoin();
   }, [interview, interviewId]);
 
   const startSessionMutation = useMutation({
@@ -309,6 +305,21 @@ export function InterviewPage() {
           <h2 className="text-xl font-bold text-gray-900">Interview Completed</h2>
           <p className="text-gray-500 mt-2">
             Your interview has been completed. Check your dashboard for results.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (rejoinDenied) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+          <TimerOff size={48} className="text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-900">Interview Locked</h2>
+          <p className="text-gray-500 mt-2">
+            This interview is already in progress. You cannot re-enter an interview
+            that has already started.
           </p>
         </div>
       </div>
