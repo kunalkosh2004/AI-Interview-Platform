@@ -42,7 +42,7 @@ const MODEL_SIZE = 640;
 const PERSON_CLASS = 0;
 const NMS_IOU_THRESHOLD = 0.45;
 
-ort.env.wasm.wasmPaths = `${import.meta.env.BASE_URL}ort-wasm/`;
+ort.env.wasm.wasmPaths = `${window.location.origin}${import.meta.env.BASE_URL}ort-wasm/`;
 // Single-threaded — the app is not COOP/COEP isolated, so SharedArrayBuffer
 // (needed for threaded wasm) is unavailable.
 ort.env.wasm.numThreads = 1;
@@ -166,23 +166,36 @@ export function useYoloDetection({
       const pred = outputs[session.outputNames[0]]?.data as
         | Float32Array
         | undefined;
-      if (!pred) return;
+      if (!pred || pred.length === 0) {
+        throw new Error("YOLO returned an empty output tensor");
+      }
 
-      // Output layout: [1, 84, 8400] → per anchor: cx, cy, w, h + 80 class scores
-      const anchors = pred.length / 84;
+      // YOLOv8n ONNX exports predictions as [1, 84, 8400] (channel-major):
+      // rows are cx, cy, w, h + 80 class scores, each row holds all anchors.
+      // So element (channel, anchor) lives at pred[channel * anchors + anchor].
+      const dims = outputs[session.outputNames[0]]?.dims ?? [];
+      const channelMajor = dims[1] === 84;
+      const anchors = Math.floor(pred.length / 84);
       const boxes: YoloBox[] = [];
       const vw = video.videoWidth;
       const vh = video.videoHeight;
       if (!vw || !vh) return;
 
-      for (let i = 0; i < anchors; i++) {
-        const personScore = pred[84 * i + 4 + PERSON_CLASS];
-        if (personScore < minScore) continue;
+      const at = (channel: number, anchor: number) =>
+        channelMajor
+          ? pred[channel * anchors + anchor]
+          : pred[anchor * 84 + channel];
 
-        const cx = pred[84 * i];
-        const cy = pred[84 * i + 1];
-        const w = pred[84 * i + 2];
-        const h = pred[84 * i + 3];
+      for (let i = 0; i < anchors; i++) {
+        const personScore = at(4 + PERSON_CLASS, i);
+        if (!Number.isFinite(personScore) || personScore < minScore) continue;
+
+        const cx = at(0, i);
+        const cy = at(1, i);
+        const w = at(2, i);
+        const h = at(3, i);
+        if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0)
+          continue;
 
         boxes.push({
           x1: cx - w / 2,
@@ -197,6 +210,9 @@ export function useYoloDetection({
         .map((idx) => boxes[idx])
         .sort((a, b) => a.x1 - b.x1);
       setPersonCount(kept.length);
+      console.debug(
+        `[yolo] pred=${pred.length} boxes=${boxes.length} kept=${kept.length}`
+      );
 
       // Derive the face region (top-center of the person box), then convert
       // from 640-space back to normalized video-frame coordinates.
@@ -248,8 +264,11 @@ export function useYoloDetection({
       } else {
         noFaceCountRef.current = 0;
       }
-    } catch {
-      // transient inference failure — try again next tick
+    } catch (err) {
+      console.warn(
+        "useYoloDetection: inference failed — retrying next tick:",
+        err
+      );
     } finally {
       runningRef.current = false;
     }
@@ -263,7 +282,7 @@ export function useYoloDetection({
     const setup = async () => {
       try {
         const session = await ort.InferenceSession.create(MODEL_URL, {
-          executionProviders: ["webgl", "wasm"],
+          executionProviders: ["wasm"],
         });
         if (cancelled) {
           session.release?.();
@@ -271,8 +290,10 @@ export function useYoloDetection({
         }
         sessionRef.current = session;
         setIsReady(true);
+        console.info("[yolo] model loaded, outputs:", session.outputNames);
         intervalRef.current = setInterval(analyzeFrame, intervalMs);
       } catch (err) {
+        console.error("[yolo] failed to load model:", err);
         if (!cancelled) {
           setError(
             err instanceof Error ? err.message : "YOLO model failed to load"

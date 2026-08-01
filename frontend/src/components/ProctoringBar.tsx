@@ -320,7 +320,12 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
   });
 
   // ── Person/face detection (YOLOv8n via ONNX Runtime Web) ─────────────────
-  const { isReady: faceReady, count: faceCount, detections } = useYoloDetection({
+  const {
+    isReady: faceReady,
+    count: faceCount,
+    detections,
+    error: faceError,
+  } = useYoloDetection({
     videoRef,
     enabled: enabled && cameraActive,
     startTime: startTimeRef.current,
@@ -343,9 +348,10 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
     ctx.lineWidth = 2;
 
     for (const d of detections) {
-      // bbox is normalized to the (non-mirrored) video frame;
-      // preview is mirrored via scaleX(-1), so mirror x back.
-      const x = (1 - d.xCenter - d.width / 2) * W;
+      // bbox is normalized to the (non-mirrored) video frame. The canvas
+      // overlay has scaleX(-1) exactly like the video preview, so raw
+      // coordinates line up — no manual x-mirroring needed.
+      const x = (d.xCenter - d.width / 2) * W;
       const y = (d.yCenter - d.height / 2) * H;
       const w = d.width * W;
       const h = d.height * H;
@@ -477,6 +483,16 @@ export function ProctoringBar({ interviewId, enabled = true }: ProctoringBarProp
           <span className="flex items-center gap-1.5 text-red-700 bg-red-100 px-3 py-1.5 rounded-lg animate-pulse">
             <Users size={14} />
             {faceCount} Faces!
+          </span>
+        )}
+
+        {faceError && (
+          <span
+            className="flex items-center gap-1.5 text-red-700 bg-red-50 px-3 py-1.5 rounded-lg"
+            title={faceError}
+          >
+            <VideoOff size={14} />
+            Face AI unavailable
           </span>
         )}
       </div>
