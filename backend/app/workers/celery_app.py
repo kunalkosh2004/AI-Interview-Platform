@@ -39,6 +39,7 @@ def generate_report_task(self, interview_id: int) -> dict:
 
 
 async def _generate_report(interview_id: int) -> dict:
+    from sqlalchemy import select
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
     from app.models.coding import InterviewReport
@@ -50,17 +51,22 @@ async def _generate_report(interview_id: int) -> dict:
     async with session_factory() as db:
         report_data = await generate_interview_report(interview_id, db)
 
-        report = InterviewReport(
-            interview_id=interview_id,
-            scores=report_data.get("scores"),
-            strengths=report_data.get("strengths", []),
-            weaknesses=report_data.get("weaknesses", []),
-            improvement_areas=report_data.get("improvement_areas", []),
-            recommendation=report_data.get("recommendation", "borderline"),
-            cheating_risk=report_data.get("cheating_risk", "low"),
-            summary=report_data.get("summary", ""),
+        existing = await db.execute(
+            select(InterviewReport).where(InterviewReport.interview_id == interview_id)
         )
-        db.add(report)
+        report = existing.scalar_one_or_none()
+        if report is None:
+            report = InterviewReport(interview_id=interview_id)
+            db.add(report)
+
+        report.scores = report_data.get("scores")
+        report.strengths = report_data.get("strengths", [])
+        report.weaknesses = report_data.get("weaknesses", [])
+        report.improvement_areas = report_data.get("improvement_areas", [])
+        report.recommendation = report_data.get("recommendation", "borderline")
+        report.cheating_risk = report_data.get("cheating_risk", "low")
+        report.summary = report_data.get("summary", "")
+
         await db.commit()
         logger.info(f"Report generated for interview {interview_id}")
 
