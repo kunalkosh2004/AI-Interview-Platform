@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -45,7 +45,29 @@ async def list_interviews(
         )
     else:
         result = await db.execute(select(Interview).order_by(Interview.created_at.desc()))
-    return result.scalars().all()
+    interviews = list(result.scalars().all())
+    await _auto_complete_expired_interviews(interviews, db)
+    return interviews
+
+
+async def _auto_complete_expired_interviews(interviews: list[Interview], db: AsyncSession) -> None:
+    """Mark in-progress interviews whose duration has elapsed as completed."""
+    now = datetime.now(UTC)
+    changed = False
+    for interview in interviews:
+        if (
+            interview.status != InterviewStatus.IN_PROGRESS
+            or not interview.started_at
+            or not interview.duration_minutes
+        ):
+            continue
+        deadline = interview.started_at + timedelta(minutes=interview.duration_minutes)
+        if deadline < now:
+            interview.status = InterviewStatus.COMPLETED
+            interview.ended_at = now
+            changed = True
+    if changed:
+        await db.commit()
 
 
 @router.post("/", response_model=InterviewResponse, status_code=status.HTTP_201_CREATED)
