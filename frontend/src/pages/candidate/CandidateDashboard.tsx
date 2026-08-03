@@ -1,9 +1,45 @@
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/api/client";
 import type { Interview } from "@/types";
-import { Calendar, Clock, Play, FileText } from "lucide-react";
+import { Calendar, Clock, Play, FileText, Timer } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ResumeUpload } from "@/components/ResumeUpload";
+
+function CountdownTimer({
+  startedAt,
+  durationMinutes,
+}: {
+  startedAt: string;
+  durationMinutes: number;
+}) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const deadline = new Date(startedAt).getTime() + durationMinutes * 60 * 1000;
+  const remaining = Math.max(0, Math.round((deadline - now) / 1000));
+  const m = Math.floor(remaining / 60);
+  const s = remaining % 60;
+
+  return (
+    <span
+      className={`flex items-center gap-1 text-xs font-medium ${
+        remaining <= 0
+          ? "text-red-600"
+          : remaining <= 300
+          ? "text-amber-600"
+          : "text-gray-600"
+      }`}
+    >
+      <Timer size={14} />
+      {remaining <= 0 ? "Ended" : `${m}:${String(s).padStart(2, "0")} remaining`}
+    </span>
+  );
+}
 
 export function CandidateDashboard() {
   const { data: interviews = [], isLoading } = useQuery<Interview[]>({
@@ -83,6 +119,18 @@ export function CandidateDashboard() {
                         <Clock size={14} />
                         {interview.duration_minutes} min
                       </span>
+                      {interview.status === "in_progress" && interview.started_at && (
+                        <>
+                          <span className="flex items-center gap-1">
+                            <Timer size={14} />
+                            Started at {new Date(interview.started_at).toLocaleTimeString()}
+                          </span>
+                          <CountdownTimer
+                            startedAt={interview.started_at}
+                            durationMinutes={interview.duration_minutes}
+                          />
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
