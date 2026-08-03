@@ -37,7 +37,7 @@ interface ReportData {
   strengths?: string[];
   weaknesses?: string[];
   improvement_areas?: string[];
-  recommendation?: "hire" | "borderline" | "reject";
+  recommendation?: "hire" | "borderline" | "reject" | "incomplete";
   cheating_risk?: "low" | "medium" | "high";
   summary?: string;
   created_at?: string;
@@ -108,6 +108,24 @@ export function ReportsPage() {
           >
             {generateMutation.isPending ? "Generating..." : "Generate Report"}
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (report.recommendation === "incomplete") {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900">Interview Report</h1>
+        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+          <AlertTriangle size={48} className="text-amber-500 mx-auto mb-4" />
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">
+            Test Not Completed
+          </h2>
+          <p className="text-gray-500 max-w-md mx-auto whitespace-pre-wrap">
+            {report.summary ||
+              "The candidate did not complete the test, so no report was generated."}
+          </p>
         </div>
       </div>
     );

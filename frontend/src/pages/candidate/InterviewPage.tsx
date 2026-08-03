@@ -175,8 +175,6 @@ export function InterviewPage() {
         }]);
         setAnswer("");
         setIsSubmitting(false);
-        toast.error("Time's up!");
-        setTimeout(() => navigate("/candidate"), 3000);
         return;
       }
 
@@ -281,6 +279,12 @@ export function InterviewPage() {
     return () => clearInterval(interval);
   }, [sessionStarted, interview?.started_at, interview?.duration_minutes]);
 
+  // End the interview server-side once the countdown hits zero
+  useEffect(() => {
+    if (!timeExpired) return;
+    api.post(`/interviews/${interviewId}/end`).catch(() => {});
+  }, [timeExpired, interviewId]);
+
   const formatTime = (sec: number) => {
     const m = Math.floor(sec / 60);
     const s = sec % 60;
@@ -326,6 +330,26 @@ export function InterviewPage() {
             This interview is already in progress. You cannot re-enter an interview
             that has already started.
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (timeExpired) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+          <TimerOff size={48} className="text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-900">Test Ended</h2>
+          <p className="text-gray-500 mt-2">
+            Your interview time has ended. Thank you for your time.
+          </p>
+          <button
+            onClick={() => navigate("/candidate")}
+            className="mt-6 px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Back to Dashboard
+          </button>
         </div>
       </div>
     );

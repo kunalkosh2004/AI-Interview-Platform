@@ -37,6 +37,26 @@ async def generate_interview_report(interview_id: int, db: AsyncSession) -> dict
 
     cheating_risk = calculate_cheating_risk(proctoring_events)
 
+    # If the candidate did not answer every question, they did not complete the
+    # test. Skip the report LLM entirely and just mark the interview as incomplete.
+    answered = sum(1 for q in questions if q.answer_text)
+    total = len(questions)
+    if total == 0 or answered < total:
+        return {
+            "scores": None,
+            "strengths": [],
+            "weaknesses": [],
+            "improvement_areas": [],
+            "recommendation": "incomplete",
+            "cheating_risk": cheating_risk,
+            "summary": (
+                f"The candidate did not complete the test. Only {answered} of {total} "
+                "questions were answered."
+                if total
+                else "The candidate did not complete the test. No answers were recorded."
+            ),
+        }
+
     qa_context = []
     for q in questions:
         qa_entry = {

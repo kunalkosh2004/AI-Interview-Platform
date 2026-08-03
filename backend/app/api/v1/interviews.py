@@ -493,7 +493,7 @@ async def get_report(
     if not report:
         raise HTTPException(status_code=404, detail="Report not generated yet")
 
-    if report.scores is None:
+    if report.scores is None and report.recommendation != "incomplete":
         return {"status": "processing", "interview_id": interview_id}
 
     return {

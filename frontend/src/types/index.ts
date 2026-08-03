@@ -126,7 +126,7 @@ export interface InterviewReport {
   strengths?: string[];
   weaknesses?: string[];
   improvement_areas?: string[];
-  recommendation?: "hire" | "borderline" | "reject";
+  recommendation?: "hire" | "borderline" | "reject" | "incomplete";
   cheating_risk?: "low" | "medium" | "high";
   summary?: string;
   created_at: string;
